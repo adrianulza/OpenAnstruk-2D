@@ -38,7 +38,7 @@ import {
 } from "@/lib/analysis-diagnostics"
 import { AnalysisIssuesDialog } from "@/components/analysis-issues-dialog"
 import { AnalyzeViewSelector } from "@/components/analyze-view-selector"
-import { LiveDiagramSwitch } from "@/tabs/live/tools/live-diagram-switch"
+import { LiveControls } from "@/tabs/live/tools/live-controls"
 import { LoadViewSelector, LOAD_VIEW_ALL, type LoadViewSelection } from "@/components/load-view-selector"
 import { BeamTemplateModal } from "@/templates/beam-template-modal"
 import { FrameTemplateModal } from "@/templates/frame-template-modal"
@@ -158,7 +158,6 @@ export default function App() {
   // Live tab: view settings only. The pull itself lives in canvas refs and is
   // gone when the tab closes (Live mode keeps no memory of what was pulled).
   const [liveDeformScale, setLiveDeformScale] = useState(1)
-  const [liveSnap, setLiveSnap] = useState(false)
   const [liveReadout, setLiveReadout] = useState<LiveReadout | null>(null)
   const [templateModal, setTemplateModal] = useState<"beam" | "frame" | "truss" | null>(null)
   const [showExamplesModal, setShowExamplesModal] = useState(false)
@@ -1656,9 +1655,13 @@ export default function App() {
             )}
           {activeTab === "Live" && (
             <div className="absolute z-20 left-1/2 -translate-x-1/2 top-3 max-sm:top-auto max-sm:bottom-4">
-              <LiveDiagramSwitch
-                value={activeTool === "AXIAL" || activeTool === "SHEAR" ? activeTool : "MOMENT"}
-                onChange={handleToolSelect}
+              <LiveControls
+                diagram={activeTool === "AXIAL" || activeTool === "SHEAR" ? activeTool : "MOMENT"}
+                onDiagramChange={handleToolSelect}
+                deformScale={liveDeformScale}
+                onDeformScaleChange={setLiveDeformScale}
+                readout={liveReadout}
+                liveSystem={liveSystem}
               />
             </div>
           )}
@@ -1767,12 +1770,6 @@ export default function App() {
             designResult={designResult}
             designPane={designPane}
             onDesignPaneChange={setDesignPane}
-            liveSystem={liveSystem}
-            liveReadout={liveReadout}
-            liveDeformScale={liveDeformScale}
-            onLiveDeformScaleChange={setLiveDeformScale}
-            liveSnap={liveSnap}
-            onLiveSnapChange={setLiveSnap}
           />
 
           <StructuralCanvas
@@ -1832,7 +1829,6 @@ export default function App() {
             designMaterialsPresent={designMaterialsPresent}
             liveSystem={liveSystem && liveSystem.ok ? liveSystem : null}
             liveDeformScale={liveDeformScale}
-            liveSnap={liveSnap}
             onLiveReadout={setLiveReadout}
           />
         </main>
