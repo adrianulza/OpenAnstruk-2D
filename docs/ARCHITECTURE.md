@@ -196,7 +196,7 @@ StructureModel {
 **Key design decisions:**
 - IDs are string-keyed monotonic counters (`"n1"`, `"m1"`, `"l1"`, `"s1"`, …). They never reset during a session.
 - One load per node (point loads), one load per member (distributed loads) — enforced by the UI.
-- Members have an optional `memberType`: `"frame"` (default; full beam-column with moment stiffness) or `"truss"` (reference software-style — frame element with M3 releases at both ends; carries transverse load locally between its end nodes but transmits only axial force at the joints). See the Solver section for details.
+- Members have an optional `memberType`: `"frame"` (default; full beam-column with moment stiffness) or `"truss"` (a frame element with M3 releases at both ends; carries transverse load locally between its end nodes but transmits only axial force at the joints). See the Solver section for details.
 - `PointLoad` stores `{fx, fy}` global components in kN. The flyout supports both direct component input and angular input (magnitude + angle) — conversion happens in the UI layer.
 - `DistributedLoad` supports two modes: `"local-axis"` (default — `wStart`/`wEnd` act in the +local-2 direction, where local-2 = i→j unit vector rotated +90° CCW) and `"global-axis"` (X/Y world components).
 - `Section` supports two authoring modes: `manual` (E, I, A entered directly) and `parametric` (materialClass + shape + dimensions, computed via `lib/sections/compute.ts`).
@@ -282,7 +282,7 @@ So a vertical column under self-weight shows the correct linear AFD (full integr
 - The same condensation transforms the FEF vector: `FEF_cc = F_r − K_rs · K_ss⁻¹ · F_s`
 - After padding back to 6×6 / length 6 with zeros at the θ positions, the element is shape-compatible with the frame path; the only difference is that its θ rows/cols are zero.
 
-The result: transverse loads (including self-weight) produce a real simply-supported moment diagram between the end nodes — exactly matching reference software — while end moments stay zero at the joints. Requires `EI > 0`; the input layer guards I33 > 0.
+The result: transverse loads (including self-weight) produce a real simply-supported moment diagram between the end nodes, matching the hand solution, while end moments stay zero at the joints. Requires `EI > 0`; the input layer guards I33 > 0.
 
 A leftover detail: pure-truss nodes (those connected only to released-end members) have zero θ stiffness in global K. The solver pins those θ DOFs to zero to keep K invertible.
 
@@ -310,6 +310,16 @@ where `x` is distance from the i-end along the member.
 
 > **Note:** `solver.ts` numerical math (`transformMatrix`, FEF formula, end-force extraction `N1=-f[0], V1=-f[1], M1=-f[2]`) is byte-stable. `localStiffness` gained an optional `GAs` parameter in v1.0.9 (Timoshenko, below) — with `GAs=0` it reduces algebraically to the original Euler matrix. Only `gaussSolve` (singular-pivot tracking + tightened tolerance, v1.0.6) and the `SolverResult` failure branch have otherwise changed. If a diagram looks wrong, suspect the display layer (local-2 direction in the drawer, invert toggle) before the solver.
 
+### Analysis worker and caches
+
+The whole analysis (`runAnalysis` in `src/lib/analysis-run.ts`: dynamic context, then every static case) is a pure function run in a Web Worker (`src/lib/analysis.worker.ts`) through `useAnalysis` (`src/hooks/use-analysis.ts`). The hook posts only while a results tab is open and only when the input object changed, so Analyze ↔ Design switches and returning with nothing edited reuse the last result. It never returns a result for an older input, so nothing looks up a deleted member. It falls back to the main thread if a Worker cannot be created. The status bar shows ANALYSING… when a run lasts more than 150 ms.
+
+`src/lib/seismic/cache.ts` keys the modal solution on geometry, sections, supports, nodal mass and the shear switch, and keys each ELF / MRS / LTH run on that key plus the case definition (and record). Renaming a case, toggling a non-mass case or editing a combination therefore reuses the eigen solution and the time-history integration. Each realm (worker, main thread) has its own cache; the settings windows reuse the worker's current solution when there is one.
+
+### Document format v2 (`src/lib/document.ts`)
+
+`serializeDocument` writes `{ format: "openanstruk-2d", version: 2, model, loadCases, combinations, combinationSettings, groundMotions, design }`. `parseDocument` accepts that or a legacy bare `StructureModel`, and guards every field without throwing: load-case kinds and the two locked ids, seismic enums merged onto `defaultSeismicDefinition`, the mass source through `resolveMassSource`, records through `reconcileGroundMotions`, combination terms against the loaded cases, and design state deep-merged onto its defaults by JSON type. App then runs `reconcileLoadCases` for orphan loads and `seedLoadCaseCounters` so new `lcN` / `cmbN` ids never collide.
+
 ### File I/O — JSON Save / Load (v1.0.10)
 
 The File menu persists a model to disk and reads it back. JSON is the only format — it round-trips the full `StructureModel` (including nested section `derived` caches) losslessly; CSV was rejected because it cannot represent that nested data.
@@ -329,7 +339,7 @@ Capture is observational: a `[model]` effect pushes the previous model onto the 
 
 ### Shear Deformation (Timoshenko, v1.0.9)
 
-Opt-in shear flexibility, toggled by **"Enable Shear Deformation"** in the Settings panel (default off). `localStiffness(EA, EI, L, GAs = 0)` computes `Φ = 12·EI/(GAs·L²)` and scales the bending block by `1/(1+Φ)` (rotational diagonal `(4+Φ)EI/(L(1+Φ))`, carry-over `(2−Φ)EI/(L(1+Φ))`); axial terms unchanged. `GAs=0 ⇒ Φ=0`, so the off path is byte-identical to Euler. `analyze(model, { shearDeformation })` resolves per-member `GAs = G·As` where `As = Aκ2·1e-6` and `G = (sec.derived?.G ?? shearModulus(E, ν))·1000`; a missing/≤0 `Aκ2` falls back to Euler for that member. Applies through `condensedTrussElement` too, so trusses honor the toggle. FEF, recovery, and diagrams are untouched. Verified vs reference software on Example 5 (`validation/shear_deformation_example5.md`).
+Opt-in shear flexibility, toggled by **"Enable Shear Deformation"** in the Settings panel (default off). `localStiffness(EA, EI, L, GAs = 0)` computes `Φ = 12·EI/(GAs·L²)` and scales the bending block by `1/(1+Φ)` (rotational diagonal `(4+Φ)EI/(L(1+Φ))`, carry-over `(2−Φ)EI/(L(1+Φ))`); axial terms unchanged. `GAs=0 ⇒ Φ=0`, so the off path is byte-identical to Euler. `analyze(model, { shearDeformation })` resolves per-member `GAs = G·As` where `As = Aκ2·1e-6` and `G = (sec.derived?.G ?? shearModulus(E, ν))·1000`; a missing/≤0 `Aκ2` falls back to Euler for that member. Applies through `condensedTrussElement` too, so trusses honor the toggle. FEF, recovery, and diagrams are untouched. Verified against an independent hand calculation on Example 5 (`validation/shear_deformation_example5.md`).
 
 ### Analysis Diagnostics & Lazy Solve (v1.0.6)
 
@@ -349,6 +359,26 @@ It returns a typed `DiagnosticsReport { status, issues[] }` with three statuses 
 **UI surfaces.** The status bar shows the three-state STATUS pill (clickable). `src/components/analysis-issues-dialog.tsx` auto-opens once per Analyze-tab entry when there is any error-severity issue; closable via `×`, backdrop, or Esc. The γ = 0 warning is also rendered inline in the Load Case and Load Combination flyout tools.
 
 ---
+
+### Modal and seismic analysis (`src/lib/seismic/`, v1.4)
+
+`solver.ts` is split into `assembleSystem` (K, F, boundary conditions, per-member k/T/FEF) and `recoverResults` (displacements → end forces and reactions); `analyze` is those two around the Gaussian solve, with byte-identical results. The dynamic side reuses both, so modal, spectrum and static passes can never disagree about elements or supports.
+
+| File | Role |
+|---|---|
+| `mass-source.ts` | Mass source on the Modal case: eligible kinds (Dead 1.0, Live / Roof Live 0.25), reconciliation with the case list |
+| `mass.ts` | Lumped nodal weight from the downward load of each mass-source case (Selfweight from γ·A·L) |
+| `modal.ts` | Guyan condensation onto the massed DOFs (exact for lumped mass), then M^−½K̂M^−½ solved with Householder + QL. All modes kept, so participation sums to 100 % |
+| `site.ts`, `spectrum.ts`, `period.ts`, `elf.ts`, `sdc.ts` | Ported unchanged from OpenANSTRUK-3D: Fa/Fv, the design spectrum, Ta and Cu, Cs and k, SDC |
+| `definition.ts` | `SeismicDefinition` on `LoadCase.seismic` (2D subset: no direction, eccentricity or time history) |
+| `run.ts` | `seismicLadder`, ELF per node (h from the lowest support), MRS with signed CQC and ELF scaling |
+| `ground-motion.ts`, `records/elcentro.ts` | Records (uniform Δt, g or m/s²), resampling, El Centro 1940 NS |
+| `newmark.ts`, `lth.ts` | Linear time history along X: Newmark-β on the condensed system, Rayleigh damping (exact at T₁ and the 90 % X-mass mode), signed peak envelope, roof and base-shear histories, kept frames |
+| `solve.ts` | `prepareSeismic`: mass → modes (only when something needs them) → a run per enabled generated seismic case |
+
+**Station-wise combination.** Response-spectrum and time-history results are not linear superpositions, so their interior forces cannot come from end forces. `MemberEndForces.stations` holds a correction at `STATION_COUNT = 21` stations: what to add to the closed form (from the end forces and q) to reach the CQC value (MRS), or the signed peak over the record (LTH), at each station. `memberInternalForces` adds the interpolated correction, so every consumer (diagrams, the Deformation summary, design demands) reads the correct interior value. The correction combines linearly in `combineResults`, so a gravity term keeps its exact closed form. `envelopeResults` takes the station-wise maximum on totals, and only for members that carry one. Static results have no correction and are byte-identical.
+
+`analysis-pipeline.ts::solveCase` takes the prepared context: an ELF case solves its own loads plus the generated nodal forces, an MRS case returns its combined result, and the Modal case never enters the static map. App memoises the context under the same Analyze/Design lazy gate as `caseResults`.
 
 ## Canvas Rendering (`src/canvas/structural-canvas.tsx`)
 
@@ -391,7 +421,7 @@ The moment diagram is **negated before offsetting** so that positive (sagging) m
 
 ### AFD — mirrored band + i/j labels (v1.0.7+)
 
-Unlike SFD/BMD, the AFD fills **both** sides of the member centerline symmetrically (a mirrored trapezoidal band). This removes the left/right side ambiguity that reference-style one-sided AFDs introduce — the same fill reads the same regardless of member i→j ordering. The colors (blue = tension, red = compression) carry the sign.
+Unlike SFD/BMD, the AFD fills **both** sides of the member centerline symmetrically (a mirrored trapezoidal band). This removes the left/right side ambiguity that one-sided AFDs introduce — the same fill reads the same regardless of member i→j ordering. The colors (blue = tension, red = compression) carry the sign.
 
 Labels:
 

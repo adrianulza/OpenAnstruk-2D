@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Grid3X3 } from "lucide-react"
+import { Grid3X3, Loader2 } from "lucide-react"
 import type { UnitSettings } from "@/lib/units"
 import { SettingsPanel } from "@/components/settings-panel"
 import type { AnalysisStatus } from "@/lib/analysis-diagnostics"
@@ -10,6 +10,8 @@ interface StatusBarProps {
   nodes: number
   members: number
   status: AnalysisStatus
+  /** An analysis is running in the worker. Shown only if it lasts > 150 ms. */
+  analysing?: boolean
   onStatusClick?: () => void
   unitSettings: UnitSettings
   showDimensions: boolean
@@ -23,6 +25,8 @@ interface StatusBarProps {
   onAdaptiveViewChange: (v: boolean) => void
   shearDeformation: boolean
   onShearDeformationChange: (v: boolean) => void
+  extrudedSections: boolean
+  onExtrudedSectionsChange: (v: boolean) => void
   onUnitSettingsChange: (next: UnitSettings) => void
   onToggleDimensions: () => void
   showSectionLabels: boolean
@@ -46,6 +50,7 @@ export function StatusBar({
   members,
   status,
   onStatusClick,
+  analysing = false,
   unitSettings,
   showDimensions,
   cursorX,
@@ -58,6 +63,8 @@ export function StatusBar({
   onAdaptiveViewChange,
   shearDeformation,
   onShearDeformationChange,
+  extrudedSections,
+  onExtrudedSectionsChange,
   onUnitSettingsChange,
   onToggleDimensions,
   showSectionLabels,
@@ -100,6 +107,17 @@ export function StatusBar({
             <span className={cn("w-2 h-2 rounded-full", statusStyle.bg)} />
             {statusStyle.label}
           </button>
+          {/* A short run should not flash a chip: it fades in only after 150 ms. */}
+          {analysing && (
+            <span
+              className="flex items-center gap-1 font-medium text-[#2563eb] opacity-0"
+              style={{ animation: "analysing-in 0s linear 150ms forwards" }}
+              role="status"
+            >
+              <Loader2 size={12} className="animate-spin" />
+              ANALYSING…
+            </span>
+          )}
         </span>
       </div>
 
@@ -149,6 +167,8 @@ export function StatusBar({
               onAdaptiveViewChange={onAdaptiveViewChange}
               shearDeformation={shearDeformation}
               onShearDeformationChange={onShearDeformationChange}
+              extrudedSections={extrudedSections}
+              onExtrudedSectionsChange={onExtrudedSectionsChange}
             />
           </PopoverContent>
         </Popover>

@@ -21,7 +21,6 @@ import type {
   LoadId,
 } from "@/lib/model"
 import {
-  solveAllCases,
   combineResults,
   envelopeResults,
   pickDisplayedResult,
@@ -69,7 +68,8 @@ import {
   splitMember,
   SCALE,
 } from "@/lib/geometry"
-import { newMemberId, resetIdCounter, seedIdCounter, isStructureModel } from "@/lib/model"
+import { newMemberId, resetIdCounter, seedIdCounter } from "@/lib/model"
+import { parseDocument, serializeDocument } from "@/lib/document"
 import { HIT_TOL_NODE, HIT_TOL_MEMBER, LOAD_PT_ARROW_LEN_PX, LOAD_DIST_MAX_ARROW_PX } from "@/lib/constants"
 import {
   type LoadCase,
@@ -82,7 +82,26 @@ import {
   newLoadCaseId,
   newLoadComboId,
   reconcileLoadCases,
+  seedLoadCaseCounters,
+  isModalCase,
+  MODAL_CASE_ID,
 } from "@/lib/load-cases"
+import { massSourceOf } from "@/lib/seismic/solve"
+import type { AnalysisInput } from "@/lib/analysis-run"
+import { useAnalysis } from "@/hooks/use-analysis"
+import { buildMassReport } from "@/lib/seismic/mass"
+import { cachedModal } from "@/lib/seismic/cache"
+import type { GroundMotionRecord } from "@/lib/seismic/ground-motion"
+import { lthFrameResult } from "@/lib/seismic/lth"
+import {
+  DEFAULT_DEFORM_VIEW,
+  deformationPeaks,
+  type DeformViewState,
+} from "@/lib/deformation"
+import { defaultSeismicDefinition } from "@/lib/seismic/definition"
+import { ModalDialog } from "@/tabs/load/tools/modal/modal-dialog"
+import { SeismicDialog } from "@/tabs/load/tools/seismic/seismic-dialog"
+import { ModalResultsCard, SeismicResultsCard } from "@/tabs/analyze/dynamic-results-card"
 import { generateCodeCombinations, requiredKindsForPreset } from "@/lib/combinations-presets"
 import type { DesignMaterial, DesignReport, DesignRunResult } from "@/lib/design/core/types"
 import { availableDesignReports } from "@/lib/design/core/types"
@@ -100,6 +119,8 @@ import { useModelHistory } from "@/hooks/use-model-history"
 // Built once so `model` and `activeSection` initialise from the same section
 // catalogue (avoids activeSection pointing at a key absent from the model).
 const initialModel = template3Portal()
+
+const NO_RESULTS: Record<LoadCaseId, SolverResult> = {}
 
 export default function App() {
   const isMobile = useIsMobile()
@@ -162,6 +183,20 @@ export default function App() {
   const [analyzeViewMode, setAnalyzeViewMode] = useState<AnalyzeViewMode>("case")
   const [selectedCaseId, setSelectedCaseId] = useState<LoadCaseId>("dead")
   const [selectedCombinationId, setSelectedCombinationId] = useState<LoadComboId | null>(null)
+  // Dynamic cases: which settings window is open, and which mode is drawn.
+  const [modalDialogOpen, setModalDialogOpen] = useState(false)
+  const [seismicCaseId, setSeismicCaseId] = useState<LoadCaseId | null>(null)
+  const [selectedModeIndex, setSelectedModeIndex] = useState(1)
+  // Imported ground-motion records (App state, like the load cases).
+  const [groundMotions, setGroundMotions] = useState<GroundMotionRecord[]>([])
+  // Time history on Analyze: null = peak envelope, else a kept frame index.
+  const [lthFrameIndex, setLthFrameIndex] = useState<number | null>(null)
+  // Deformation view: contour colour, extruded sections, animation.
+  const [deformView, setDeformView] = useState<DeformViewState>(DEFAULT_DEFORM_VIEW)
+  const patchDeformView = useCallback(
+    (patch: Partial<DeformViewState>) => setDeformView((v) => ({ ...v, ...patch })),
+    [],
+  )
   // Load tab: which case to show on canvas (or "all loads"). Default "all".
   const [loadViewFilter, setLoadViewFilter] = useState<LoadViewSelection>(LOAD_VIEW_ALL)
 
@@ -299,9 +334,11 @@ export default function App() {
         if (!existing) return prev
         // Locked cases can only patch `enabled`. For Selfweight, `enabled` gates
         // the synthetic γ·A body force computed in solveCase("selfweight").
+        // The Modal case may also take its mass source.
         if (existing.locked) {
           const safePatch: Partial<LoadCase> = {}
           if ("enabled" in patch) safePatch.enabled = patch.enabled
+          if ("modal" in patch && isModalCase(existing)) safePatch.modal = patch.modal
           return { ...prev, [id]: { ...existing, ...safePatch } }
         }
         return { ...prev, [id]: { ...existing, ...patch } }
@@ -431,12 +468,54 @@ export default function App() {
   // Design shares this memo (v1.2.0): it needs exactly the same solve, so
   // gating both tabs here means switching Analyze ↔ Design reuses the
   // factorization instead of repeating it.
-  const caseResults = useMemo<Record<LoadCaseId, SolverResult>>(
-    () => activeTab === "Analyze" || activeTab === "Design"
-      ? solveAllCases(model, loadCases, { shearDeformation })
-      : {},
-    [activeTab, model, loadCases, shearDeformation],
+  // The dynamic side (mass → modes → earthquake cases), under the same lazy
+  // gate. Null when no case needs it, so a static-only model pays nothing.
+  // The whole analysis runs in a Web Worker (`hooks/use-analysis.ts`), so a
+  // large model never freezes the page. It runs while a results tab is open,
+  // and only when an input changed: switching Analyze ↔ Design, or leaving and
+  // returning with nothing edited, reuses the last result.
+  const resultsTab = activeTab === "Analyze" || activeTab === "Design"
+  const analysisInput = useMemo<AnalysisInput>(
+    () => ({ model, loadCases, opts: { shearDeformation }, groundMotions }),
+    [model, loadCases, shearDeformation, groundMotions],
   )
+  const { output: analysisOutput, pending: analysing } = useAnalysis(analysisInput, resultsTab)
+  const seismicCtx = analysisOutput?.seismicCtx ?? null
+  const caseResults = analysisOutput?.caseResults ?? NO_RESULTS
+
+  // The settings windows need the mass and the modes on any tab (the Load
+  // tab is where they open). A plane frame's eigen solve is milliseconds.
+  const dialogDynamics = useMemo(() => {
+    if (!modalDialogOpen && seismicCaseId === null) return null
+    // The worker's solution is reused when it is current for this model.
+    if (seismicCtx?.mass && seismicCtx.modal) return { mass: seismicCtx.mass, modal: seismicCtx.modal }
+    const mass = buildMassReport(model, loadCases, massSourceOf(loadCases))
+    return { mass, modal: cachedModal(model, mass, { shearDeformation }).value }
+  }, [modalDialogOpen, seismicCaseId, model, loadCases, shearDeformation, seismicCtx])
+
+  const modalSolution = seismicCtx?.modal ?? null
+  const showingModal = analyzeViewMode === "case" && isModalCase(loadCases[selectedCaseId])
+
+  // A mode shape drawn through the ordinary deformation path: φ as the nodal
+  // displacements (the canvas auto-scales to its peak). Forces and reactions
+  // are zero — a mode shape has an arbitrary amplitude, so any kN it printed
+  // would be a number with no meaning.
+  const modeShapeResult = useMemo<AnalysisResult | null>(() => {
+    if (!showingModal || !modalSolution?.ok) return null
+    const mode = modalSolution.modes.find((m) => m.index === selectedModeIndex) ?? modalSolution.modes[0]
+    const { nodeList } = modalSolution.system
+    const nodeDisplacements: AnalysisResult["nodeDisplacements"] = {}
+    nodeList.forEach((id, i) => {
+      nodeDisplacements[id] = { u: mode.phi[3 * i], v: mode.phi[3 * i + 1], theta: mode.phi[3 * i + 2] }
+    })
+    const memberEndForces: AnalysisResult["memberEndForces"] = {}
+    for (const id of Object.keys(model.members)) {
+      memberEndForces[id] = { N1: 0, V1: 0, M1: 0, N2: 0, V2: 0, M2: 0, q1: 0, q2: 0, qx1: 0, qx2: 0 }
+    }
+    const reactions: AnalysisResult["reactions"] = {}
+    for (const id of Object.keys(model.supports)) reactions[id] = { Rx: 0, Ry: 0, Mz: 0 }
+    return { ok: true, nodeDisplacements, memberEndForces, reactions }
+  }, [showingModal, modalSolution, selectedModeIndex, model.members, model.supports])
 
   // Analyze-only: the Design tab shares `caseResults` above but combines the
   // cases itself, per enabled combination, inside the design run. Without this
@@ -456,8 +535,55 @@ export default function App() {
     [comboResults, envelopeComboIds, combinations],
   )
 
+  // One instant of a time-history case, drawn in place of its peak envelope.
+  const selectedLth = analyzeViewMode === "case" ? seismicCtx?.runs[selectedCaseId]?.lth : undefined
+  const lthFrameResultMemo = useMemo<AnalysisResult | null>(() => {
+    if (!selectedLth || lthFrameIndex === null || !modalSolution?.ok) return null
+    const frame = selectedLth.frames[Math.min(lthFrameIndex, selectedLth.frames.length - 1)]
+    return frame ? lthFrameResult(model, modalSolution, frame) : null
+  }, [selectedLth, lthFrameIndex, modalSolution, model])
+
+  // Frames of a time history are drawn against the envelope's peak, so the
+  // animation shows the real rise and fall of the response.
+  // A time history is drawn and coloured against its envelope's peaks, at the
+  // peak view and at every frame alike.
+  const deformPeaks = useMemo(
+    () => (selectedLth ? deformationPeaks(model, selectedLth.result) : undefined),
+    [selectedLth, model],
+  )
+
+  // Time-history playback: Play steps through the kept frames in real time
+  // (× speed); anything else animates on the canvas itself.
+  const lthPlaying = deformView.playing && !!selectedLth
+  useEffect(() => {
+    if (!lthPlaying || !selectedLth) return
+    const frames = selectedLth.frames
+    const frameDt = frames.length > 1 ? frames[1].t - frames[0].t : selectedLth.dt
+    let t = frames[Math.min(lthFrameIndex ?? 0, frames.length - 1)].t
+    let last = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      t += Math.min((now - last) / 1000, 0.1) * deformView.speed
+      last = now
+      if (t > selectedLth.duration) t = 0
+      setLthFrameIndex(Math.min(Math.floor(t / frameDt), frames.length - 1))
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+    // The playhead is seeded once per play; frame updates must not restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lthPlaying, selectedLth, deformView.speed])
+  const canvasDeformView = useMemo(
+    () => ({ ...deformView, playing: deformView.playing && !selectedLth }),
+    [deformView, selectedLth],
+  )
+  const lthPlaybackLabel = selectedLth
+    ? `t = ${lthFrameIndex === null ? "peak" : `${selectedLth.frames[Math.min(lthFrameIndex, selectedLth.frames.length - 1)].t.toFixed(2)} s`} / ${selectedLth.duration.toFixed(2)} s`
+    : undefined
+
   const displayedResult = useMemo(
-    () => pickDisplayedResult(
+    () => showingModal ? modeShapeResult : lthFrameResultMemo ?? pickDisplayedResult(
       analyzeViewMode,
       caseResults,
       comboResults,
@@ -465,7 +591,7 @@ export default function App() {
       selectedCaseId,
       selectedCombinationId,
     ),
-    [analyzeViewMode, caseResults, comboResults, envelopeResult, selectedCaseId, selectedCombinationId],
+    [showingModal, modeShapeResult, lthFrameResultMemo, analyzeViewMode, caseResults, comboResults, envelopeResult, selectedCaseId, selectedCombinationId],
   )
 
   // ── Design run (automatic) ─────────────────────────────────────────────────
@@ -648,10 +774,22 @@ export default function App() {
     setDesignSelectedSectionId(null)
   }, [resetHistory])
 
-  // Save the current model as a downloadable JSON file. JSON round-trips the
-  // full StructureModel losslessly (see CLAUDE.md File I/O brainstorm).
+  // Save the document (format v2, `lib/document.ts`): the model plus load
+  // cases (mass source and earthquake definitions included), combinations,
+  // imported ground motions and design settings.
   const handleSaveFile = useCallback(() => {
-    const json = JSON.stringify(model, null, 2)
+    const json = serializeDocument({
+      model,
+      loadCases,
+      combinations,
+      combinationSettings: {
+        enabled: combinationsEnabled,
+        mode: combinationMode,
+        preset: selectedCodePreset,
+      },
+      groundMotions,
+      design: { criteria: designCriteria, sectionInputs: sectionDesignInputs },
+    })
     const blob = new Blob([json], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const now = new Date()
@@ -664,7 +802,10 @@ export default function App() {
     a.download = `openanstruk-structure-${stamp}.json`
     a.click()
     URL.revokeObjectURL(url)
-  }, [model])
+  }, [
+    model, loadCases, combinations, combinationsEnabled, combinationMode, selectedCodePreset,
+    groundMotions, designCriteria, sectionDesignInputs,
+  ])
 
   // Load a model from a user-selected JSON file. Untrusted contents are parsed
   // and shape-guarded before swapping. On success, the same reset pattern as
@@ -680,11 +821,52 @@ export default function App() {
       const reader = new FileReader()
       reader.onload = () => {
         try {
-          const parsed = JSON.parse(reader.result as string)
-          if (!isStructureModel(parsed)) {
-            window.alert("Could not load file: not a valid OpenAnstruk model.")
+          const doc = parseDocument(reader.result as string)
+          if (!doc.ok) {
+            window.alert(`Could not load file: ${doc.reason}`)
             return
           }
+          if (!doc.legacy) {
+            // v2 document: the file's own analysis and design setup.
+            const st = doc.state
+            const rec = reconcileLoadCases(st.model, st.loadCases)
+            seedIdCounter(rec.model)
+            seedLoadCaseCounters(rec.cases, st.combinations)
+            setModel(rec.model)
+            setLoadCases(rec.cases)
+            setCombinations(st.combinations)
+            setCombinationsEnabled(st.combinationSettings.enabled)
+            setCombinationMode(st.combinationSettings.mode)
+            setSelectedCodePreset(st.combinationSettings.preset)
+            setEnvelopeComboIds(Object.keys(st.combinations))
+            setSelectedCombinationId(null)
+            setGroundMotions(st.groundMotions)
+            setDesignCriteria(st.design.criteria)
+            setSectionDesignInputs(st.design.sectionInputs)
+            setDesignSelectedSectionId(null)
+            const firstLoadCase =
+              Object.values(rec.cases).find((c) => c.kind !== "Modal" && !c.locked)?.id ?? "dead"
+            setActiveLoadCaseId(rec.cases.dead ? "dead" : firstLoadCase)
+            setSelectedCaseId(rec.cases.dead ? "dead" : firstLoadCase)
+            setLthFrameIndex(null)
+            resetHistory()
+            setActiveSection(firstSectionId(rec.model))
+            setActiveTab("Model")
+            setActiveTool(null)
+            setPendingFrameStart(null)
+            setSelection(emptySelection())
+            setSelectedLoadId(null)
+            const notes = [...doc.warnings]
+            if (rec.recovered.length > 0) {
+              notes.push(
+                `${rec.recovered.length} load case(s) referenced by loads are not in the file: ` +
+                `${rec.recovered.join(", ")}. Each was recreated as a DISABLED "Recovered (…)" case.`,
+              )
+            }
+            if (notes.length > 0) window.alert(`Loaded, with notes:\n\n• ${notes.join("\n• ")}`)
+            return
+          }
+          const parsed = doc.model
           // The file carries `model` alone — load cases are App state and are
           // not serialized. A load whose case is missing is assembled by no
           // case at all, so it draws on the canvas and contributes nothing to
@@ -708,7 +890,7 @@ export default function App() {
             window.alert(
               `Loaded — but ${rec.recovered.length} load case(s) referenced by this ` +
               `file are not in it: ${rec.recovered.join(", ")}.\n\n` +
-              `Load cases are not saved in the file yet. Each has been recreated ` +
+              `This is an older file that did not save its load cases. Each has been recreated ` +
               `as a DISABLED case named "Recovered (…)" so its loads are not ` +
               `analysed under a guessed type. Open the Load tab, set each case's ` +
               `type, then enable it.`,
@@ -1410,13 +1592,43 @@ export default function App() {
               analyzeViewMode={analyzeViewMode}
               onAnalyzeViewModeChange={setAnalyzeViewMode}
               selectedCaseId={selectedCaseId}
-              onSelectedCaseIdChange={setSelectedCaseId}
+              onSelectedCaseIdChange={(id) => {
+                setSelectedCaseId(id)
+                setLthFrameIndex(null)
+                // A mode is a shape: open the deformation view with it.
+                if (isModalCase(loadCases[id])) handleToolSelect("DEFORMATION")
+              }}
               selectedCombinationId={selectedCombinationId}
               onSelectedCombinationIdChange={setSelectedCombinationId}
               envelopeComboIds={envelopeComboIds}
               onEnvelopeComboIdsChange={setEnvelopeComboIds}
+              modes={modalSolution?.ok ? modalSolution.modes : []}
+              selectedModeIndex={selectedModeIndex}
+              onSelectedModeIndexChange={setSelectedModeIndex}
             />
           )}
+          {activeTab === "Analyze" && showingModal && (
+            <ModalResultsCard
+              modal={modalSolution}
+              selectedModeIndex={selectedModeIndex}
+              onSelectMode={(i) => {
+                setSelectedModeIndex(i)
+                if (activeTool !== "DEFORMATION") handleToolSelect("DEFORMATION")
+              }}
+            />
+          )}
+          {activeTab === "Analyze" &&
+            analyzeViewMode === "case" &&
+            seismicCtx?.runs[selectedCaseId] && (
+              <SeismicResultsCard
+                name={loadCases[selectedCaseId]?.name ?? selectedCaseId}
+                run={seismicCtx.runs[selectedCaseId]}
+                frameIndex={lthFrameIndex}
+                playing={lthPlaying}
+                onPlayingChange={(playing) => patchDeformView({ playing })}
+                onFrameIndexChange={setLthFrameIndex}
+              />
+            )}
           <FlyoutPanel
             activeTab={activeTab}
             activeTool={activeTool}
@@ -1477,6 +1689,10 @@ export default function App() {
             invertBMD={invertBMD}
             onInvertBMDChange={setInvertBMD}
             deformationScale={deformationScale}
+            deformationPeaks={deformPeaks}
+            deformView={deformView}
+            onDeformViewChange={patchDeformView}
+            deformPlaybackLabel={lthPlaybackLabel}
             onDeformationScaleChange={setDeformationScale}
             analysisResult={displayedResult}
             moveNodeMode={moveNodeMode}
@@ -1493,6 +1709,8 @@ export default function App() {
             onAddLoadCase={handleAddLoadCase}
             onDeleteLoadCase={handleDeleteLoadCase}
             onPatchLoadCase={handlePatchLoadCase}
+            onEditModal={() => setModalDialogOpen(true)}
+            onEditSeismic={setSeismicCaseId}
             combinations={combinations}
             combinationsEnabled={combinationsEnabled}
             onCombinationsEnabledChange={setCombinationsEnabled}
@@ -1544,6 +1762,8 @@ export default function App() {
             invertSFD={invertSFD}
             invertBMD={invertBMD}
             deformationScale={deformationScale}
+            deformationPeaks={deformPeaks}
+            deformView={canvasDeformView}
             showSectionLabels={showSectionLabels}
             showNodeIds={showNodeIds}
             showMemberIds={showMemberIds}
@@ -1609,6 +1829,7 @@ export default function App() {
         members={memberCount}
         status={mergedReport.status}
         onStatusClick={() => setIssuesDialogOpen(true)}
+        analysing={analysing && resultsTab}
         unitSettings={unitSettings}
         showDimensions={showDimensions}
         cursorX={cursorX}
@@ -1621,6 +1842,8 @@ export default function App() {
         onAdaptiveViewChange={setAdaptiveView}
         shearDeformation={shearDeformation}
         onShearDeformationChange={setShearDeformation}
+        extrudedSections={deformView.extrude}
+        onExtrudedSectionsChange={(extrude) => patchDeformView({ extrude })}
         onUnitSettingsChange={setUnitSettings}
         onToggleDimensions={() => setShowDimensions(!showDimensions)}
         showSectionLabels={showSectionLabels}
@@ -1632,6 +1855,37 @@ export default function App() {
         showLocalAxes={showLocalAxes}
         onToggleLocalAxes={() => setShowLocalAxes(!showLocalAxes)}
       />
+
+      {modalDialogOpen && (
+        <ModalDialog
+          model={model}
+          loadCases={loadCases}
+          value={massSourceOf(loadCases)}
+          modal={dialogDynamics?.modal ?? null}
+          onCommit={(modal) => {
+            handlePatchLoadCase(MODAL_CASE_ID, { modal })
+            setModalDialogOpen(false)
+          }}
+          onCancel={() => setModalDialogOpen(false)}
+        />
+      )}
+      {seismicCaseId !== null && loadCases[seismicCaseId] && (
+        <SeismicDialog
+          key={seismicCaseId}
+          model={model}
+          caseName={loadCases[seismicCaseId].name}
+          value={loadCases[seismicCaseId].seismic ?? defaultSeismicDefinition()}
+          mass={dialogDynamics?.mass ?? null}
+          modal={dialogDynamics?.modal ?? null}
+          groundMotions={groundMotions}
+          onImportRecord={(rec) => setGroundMotions((prev) => [...prev, rec])}
+          onCommit={(seismic) => {
+            handlePatchLoadCase(seismicCaseId, { seismic })
+            setSeismicCaseId(null)
+          }}
+          onCancel={() => setSeismicCaseId(null)}
+        />
+      )}
 
       <AnalysisIssuesDialog
         open={issuesDialogOpen}

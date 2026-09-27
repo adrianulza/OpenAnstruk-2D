@@ -107,9 +107,9 @@ OpenAnstruk-2D is a **web-based 2D structural analysis tool** for students, educ
    - Parametric 3D templates (simple building, tower, truss)
 
 2. **Dynamic Analysis**
-   - Modal analysis (eigenvalue problem for natural frequencies)
-   - Response spectrum analysis (ASCE 7 earthquake response)
-   - Basic seismic design outputs
+   - ✅ Modal analysis (eigenvalue problem for natural frequencies) — plane frame, v1.4
+   - ✅ Response spectrum analysis (ASCE 7-16 / SNI 1726:2019) and static equivalent (ELF) — plane frame, v1.4
+   - Basic seismic design outputs (drift check with Cd, Ω0 combinations)
 
 3. **3D Visualization**
    - 3D member diagram rendering (SFD/BMD on 3D members)
@@ -142,7 +142,7 @@ OpenAnstruk-2D is a **web-based 2D structural analysis tool** for students, educ
 #### Scope Limitations
 - Limited to simple IFC structures (no complex connections)
 - Detailing is template-based (not generative AI)
-- a BIM platform integration read-only initially
+- BIM platform integration read-only initially
 
 ---
 
@@ -157,7 +157,7 @@ OpenAnstruk-2D is a **web-based 2D structural analysis tool** for students, educ
 | **P2** | File save/load (JSON) | Medium | High |
 | **P2** | Timoshenko beam mode | Medium | Low |
 | **P3** | PDF / Report export | Medium | Medium |
-| **P3** | Modal analysis | High | Medium |
+| **P3** | Modal analysis ✅ (2D, with ELF / MRS) | High | Medium |
 | **P4** | 3D viewer prototype | High | Medium |
 
 ---
@@ -166,9 +166,9 @@ OpenAnstruk-2D is a **web-based 2D structural analysis tool** for students, educ
 
 ### Current (v1.0.1)
 - [ ] Add undo/redo system (currently no history)
-- [ ] Memoize solver results (recomputed every render)
+- [x] Memoize solver results (Web Worker, modal and per-case caches)
 - [ ] Code-split bundle (if performance issues emerge)
-- [ ] Add unit tests (currently manual testing only)
+- [x] Closed-form engine benchmarks: `npm run verify:dynamics` (docs/VALIDATION_DYNAMICS.md). UI tests are still manual.
 - [ ] Improve error messages (solver failures are cryptic)
 
 ### Near Future

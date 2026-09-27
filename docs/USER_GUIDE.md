@@ -29,7 +29,7 @@ Click anywhere on the canvas to place a node. Nodes snap to a 0.5 m grid. If you
 ### MEMBER
 Click once to start a member, click again to end it. Members connect two nodes. Use the flyout panel (right side) to choose between:
 - **Frame** — full beam-column with bending stiffness (default)
-- **Truss** — frame with moment releases at both ends. Transmits only axial force to adjoining members at the joints, but carries transverse load locally between its end nodes (a distributed load or self-weight produces a simply-supported moment diagram on the member). Matches reference software's truss behavior.
+- **Truss** — frame with moment releases at both ends. Transmits only axial force to adjoining members at the joints, but carries transverse load locally between its end nodes (a distributed load or self-weight produces a simply-supported moment diagram on the member).
 
 Duplicate members (same two endpoints) are rejected.
 
@@ -88,6 +88,36 @@ The locked **Selfweight** load case (visible in the LOAD CASE tool) applies a bo
 - **Trusses**: self-weight is applied to truss members too. Each truss member shows a parabolic moment diagram from its own weight (simply-supported between its end nodes), and the reactions at supports correctly include the truss self-weight.
 - **γ = 0 warning** (v1.0.6+): when Selfweight is enabled but at least one referenced section has γ = 0, an amber warning appears at the bottom of the Load Case panel — and also at the bottom of the Load Combination panel when any combination references Selfweight. Open the MATERIAL tool and set Unit Weight on the offending section to include it in self-weight.
 
+### VIBRATION ANALYSIS (Modal)
+The locked **Vibration analysis** case sits at the top of the LOAD CASE table, above the gravity cases. It carries no loads; it asks for the free-vibration modes of the frame. It is **unchecked by default**, and its row is dimmed while off.
+
+- **Settings**: click its **MOD** chip in the Abbr column. The window sets the **mass source**: which load cases become mass, and at what factor. Only dead and live cases are eligible. The defaults are 1.0 for Dead (Selfweight and SIDL) and 0.25 for any Live or Roof Live case. Each case contributes its downward loads, lumped at the nodes (m = W/g), acting in both X and Y. The window shows the weight of every case and the total, live.
+- **Mode count**: automatic. Every mode of the structure is extracted, one per free massed degree of freedom, so the cumulative mass participation reaches 100 % in X and Y.
+- **Independent of the case checkboxes**: unticking Dead in the table removes its loads from the static solve but not from the mass. Mass inclusion is set in this window alone.
+- **Results**: tick the case, go to Analyze, choose **Load Case → Vibration analysis**. A mode picker appears beside it and the canvas draws the selected mode shape (the Deformation tool opens automatically). The table in the bottom-right corner lists T, f, the X and Y participation of each mode and their running sums; click a row to draw that mode.
+
+### EARTHQUAKE (Seismic cases)
+Set a case's Type to **Seismic** and the earthquake window opens. Its **E** chip reopens it at any time. The layout follows OpenANSTRUK-3D:
+
+- **Code**: SNI 1726:2019 (default) or ASCE 7-16.
+- **Analysis method**: **Static equivalent (ELF)** or **Response spectrum (MRS)**. The chip reads **EM** for a response-spectrum case and **ET** for a time-history case.
+- **Direction**: always global X, the frame's own plane.
+- **Period**: *Auto* (the dominant X mode of the vibration analysis, capped at Cu·Ta), *Empirical* (Ta = Ct·hₙˣ), or *User defined* (used as given, not capped).
+- **Earthquake parameters**: Ss, S1, TL and site class. **Building system**: risk category (sets Ie), building type (sets Ct and x), R, Ω0 and Cd.
+- **Output**: the design spectrum with the design period marked, and Fa, Fv, T0, SMS, SM1, Cu·Ta, SDS, SD1, Cs, SDC, W and V_ELF.
+
+How the loads are generated:
+
+- **ELF**: V = Cs·W, distributed to every massed node above the base as Fx = V·w·hᵏ / Σw·hᵏ, with h measured from the lowest support. The forces join any loads you placed in the case.
+- **MRS**: every mode is used. Modal responses are combined by CQC (damping ζ set in the window, default 5 %), and the result is scaled up to V_ELF where it falls short (§12.9.1.4). Displacements are scaled only where Cs is set by Eq. 12.8-6. The combination is done at 21 stations along every member, not only at its ends, so moments and shears between the ends are true CQC values (a CQC is never negative, and interpolating end values would cross a zero that is not there). The combined values carry the sign of the dominant mode, so diagrams keep their shape; the ±E code combinations bracket both directions. Loads placed in an MRS case are ignored.
+- **W** always comes from the Vibration analysis mass source, whether or not that case is ticked. The modal solve runs automatically when a seismic case needs it.
+
+- **LTH (linear time history)**: the frame is integrated through a ground-motion record along global X (Newmark-β, average acceleration by default, at the record's Δt or one you set). Damping is Rayleigh, with ζ exact at mode 1 and at the mode where the cumulative X mass first reaches 90 % (the next X-participating mode when mode 1 alone reaches it); modes between them are damped slightly less, modes above slightly more. El Centro 1940 NS is built in; **Import record…** takes one acceleration per line (pasted or from a text file), with its Δt and unit. R, Ie and the design spectrum are not applied: the record × scale factor is the input. The case result is the peak response over the whole record (each quantity at its instant of largest magnitude, at 21 stations along every member as well as at its ends), so it combines like any other case.
+
+On the Analyze tab, a generated seismic case shows a summary card with W, T, Cs, k, V_ELF and, for MRS, V_MRS, the scale factor and the design base shear. For LTH, the card shows the peak roof displacement and base shear with their times, and a time slider with a play button: the canvas then draws the frame at that instant, on the same scale as the peak so the motion is real. **Peak** returns to the envelope.
+
+A Seismic case you never define (Cancel on the first open) stays a manual case: its loads are the ones you placed, as before.
+
 ---
 
 ## Analyze Tab
@@ -129,6 +159,13 @@ Displays the axial force diagram (AFD). Blue = tension, red = compression.
 Displays the deformed shape. Use the scale slider to exaggerate deformations for visibility.
 
 ---
+
+
+The Deformation panel also carries three OpenANSTRUK-3D-style controls:
+
+- **Section: Wire / Solid.** Solid draws every member at its real in-plane section depth (flange and wall lines included), and the deformed shape as a band that stays normal to the deflected axis. The same switch is **Extruded Sections** in Settings, and it applies on every tab. Sections without a parametric shape use the depth of the equivalent rectangle, h = √(12·I/A).
+- **Colour: Off / Total / UX / UY.** Contours the deformed shape blue → cyan → green → yellow → red. Total maps |u| from 0 to the peak; UX and UY map the signed component from −peak to +peak. The legend under the buttons shows the range.
+- **Animate.** Play cycles the deformed shape from undeformed to full and back (2 s per cycle at 1×; 0.5× and 2× available). Mode shapes animate the same way. For a time-history case, Play runs the record in real time instead, drawn against the envelope's peak so the motion is true to scale; the card's slider and the panel stay in step.
 
 ## Design Tab
 
@@ -219,13 +256,17 @@ Use the **NavBar file menu** to load pre-built templates or generate parametric 
 
 ## Saving and Loading
 
-**Save File** writes the model to JSON — nodes, members, supports, sections and loads, including every derived section property, so it round-trips without loss. **Load File** reads one back.
+**Save File** writes one JSON document (format `openanstruk-2d`, version 2) holding:
 
-> ⚠ **Load cases, load combinations and design settings are not in the file.** Only the model is.
+- the model: nodes, members, supports, sections (with every derived property) and loads;
+- the load cases, including the Vibration analysis mass source and every earthquake definition (static equivalent, response spectrum and time-history settings);
+- the load combinations and their settings (on/off, manual or code mode, the code preset);
+- imported ground-motion records;
+- the design settings: design criteria and each section's design inputs.
 
-That has a consequence worth knowing. Loads *are* saved, and each one records which load case it belongs to. Open a file in a fresh session and those cases are gone, so a load can end up pointing at a case that no longer exists — and a load belonging to no case contributes nothing to the analysis, while still being drawn on the canvas.
+**Load File** reads it back and restores all of it. Every part of the file is checked field by field: anything malformed is dropped with a note, and a file written by a newer version opens with whatever this version understands.
 
-The app now reconciles this on load rather than letting it pass silently:
+Files saved before version 2 hold the model only. They still open, and their load cases are reconciled against the ones in the current session:
 
 - A load with **no case at all** (a file from before load cases existed) is adopted into **Dead** and analyses immediately. There was only ever one case then, so that is what it meant.
 - A load naming a **case the file did not carry** gets that case recreated, **disabled**, named `Recovered (…)`, and an alert lists them. Its original type is unknowable, and guessing is worse than not analysing — calling a Live case Dead applies 1.2 where the code wants 1.6 and hands you a plausible wrong number. Open the Load tab, set each recovered case's type, then enable it.
@@ -257,6 +298,6 @@ The **Undo** and **Redo** buttons sit just below the zoom slider in the top-righ
 
 ## Verification
 
-OpenAnstruk-2D's solver has been verified against reference software on standard textbook examples — simply supported and overhanging beams, a three-member truss, a portal frame, and shear-deformation and steel-design cases — agreeing to 0.000% on the compared quantities.
+OpenAnstruk-2D's solver has been verified against textbook examples and independent hand calculations: simply supported and overhanging beams, a three-member truss, a portal frame, and shear-deformation and steel-design cases — agreeing to 0.000% on the compared quantities.
 
-The comparison harness and its reference software reference models are not part of this repository and never have been. If you find a discrepancy, please report it with the model and the numbers you expected — see [CONTRIBUTING.md](CONTRIBUTING.md).
+The comparison models are not part of this repository. If you find a discrepancy, please report it with the model and the numbers you expected — see [CONTRIBUTING.md](CONTRIBUTING.md).

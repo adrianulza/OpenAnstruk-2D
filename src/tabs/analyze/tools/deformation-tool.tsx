@@ -3,6 +3,14 @@ import { FLYOUT_PANEL_COLORS } from "@/lib/flyout-panel-colors"
 import { ToggleButton } from "@/components/flyout-shared"
 import type { AnalysisResult, NodeDisplacement } from "@/lib/solver"
 import type { StructureModel } from "@/lib/model"
+import { Pause, Play } from "lucide-react"
+import {
+  deformationPeaks,
+  type DeformationPeaks,
+  type DeformColor,
+  type DeformViewState,
+} from "@/lib/deformation"
+import { CONTOUR_GRADIENT } from "@/lib/contour-ramp"
 import { Label } from "@/components/ui/label"
 import {
   type UnitSettings,
@@ -17,12 +25,26 @@ export function DeformationToolContent({
   analysisResult,
   model,
   unitSettings = DEFAULT_UNIT_SETTINGS,
+  peakOverride,
+  view,
+  onViewChange,
+  peaks: peaksOverride,
+  playbackLabel,
 }: {
   scale?: number
   onScaleChange?: (v: number) => void
   analysisResult?: AnalysisResult | null
   model?: StructureModel
   unitSettings?: UnitSettings
+  /** The peak the canvas scales against, when it is not this result's own. */
+  peakOverride?: number
+  /** Colour, extrusion and animation state, and its writer. */
+  view?: DeformViewState
+  onViewChange?: (patch: Partial<DeformViewState>) => void
+  /** Peaks the canvas colours against, when they are not this result's own. */
+  peaks?: DeformationPeaks
+  /** Time-history playhead, e.g. "t = 4.80 s / 31.18 s"; present for LTH. */
+  playbackLabel?: string
 }) {
   const dispUnit = labelDisplacement(unitSettings)
   const rotUnit  = labelRotation(unitSettings)
@@ -45,39 +67,13 @@ export function DeformationToolContent({
   // True amplification factor: matches canvas k = (TARGET_M / peakDisp) * scale, TARGET_M = 1.
   // Peak is sampled along each member's cubic-Hermite spline (not just at nodes) so it
   // captures mid-span sag — same algorithm as drawDeformedShape in the canvas.
-  const peakDisp = React.useMemo(() => {
-    if (!analysisResult || !model) return 0
-    const N_PTS = 40
-    let p = 0
-    for (const member of Object.values(model.members)) {
-      const nA = model.nodes[member.a]
-      const nB = model.nodes[member.b]
-      if (!nA || !nB) continue
-      const dA = analysisResult.nodeDisplacements[member.a]
-      const dB = analysisResult.nodeDisplacements[member.b]
-      if (!dA || !dB) continue
-      const dx = nB.x - nA.x, dy = nB.y - nA.y
-      const L = Math.hypot(dx, dy)
-      if (L < 1e-9) continue
-      const c = dx / L, sn = dy / L
-      const u1 =  c * dA.u + sn * dA.v, v1 = -sn * dA.u + c * dA.v, th1 = dA.theta
-      const u2 =  c * dB.u + sn * dB.v, v2 = -sn * dB.u + c * dB.v, th2 = dB.theta
-      for (let i = 0; i <= N_PTS; i++) {
-        const xi = i / N_PTS
-        const uLoc = (1 - xi) * u1 + xi * u2
-        const H1 = 1 - 3*xi*xi + 2*xi*xi*xi
-        const H2 = L * xi * (1 - xi) * (1 - xi)
-        const H3 = 3*xi*xi - 2*xi*xi*xi
-        const H4 = L * xi*xi * (xi - 1)
-        const vLoc = H1*v1 + H2*th1 + H3*v2 + H4*th2
-        const dispX = c * uLoc - sn * vLoc
-        const dispY = sn * uLoc + c * vLoc
-        const mag = Math.hypot(dispX, dispY)
-        if (mag > p) p = mag
-      }
-    }
-    return p
-  }, [analysisResult, model])
+  const ownPeaks = React.useMemo(
+    () => (model ? deformationPeaks(model, analysisResult ?? null) : { total: 0, ux: 0, uy: 0 }),
+    [analysisResult, model],
+  )
+  const ownPeak = ownPeaks.total
+  const legendPeaks = peaksOverride ?? ownPeaks
+  const peakDisp = peakOverride ?? ownPeak
   const trueFactor = peakDisp > 1e-12 ? (1 / peakDisp) * m : 0
   const factorLabel = trueFactor === 0
     ? "—"
@@ -126,6 +122,19 @@ export function DeformationToolContent({
         </div>
       </div>
 
+      {view && onViewChange && (
+        <>
+          <div className="border-t" style={{ borderTopColor: FLYOUT_PANEL_COLORS.contentSeparator }} />
+          <DeformViewControls
+            view={view}
+            onViewChange={onViewChange}
+            peaks={legendPeaks}
+            unitSettings={unitSettings}
+            playbackLabel={playbackLabel}
+          />
+        </>
+      )}
+
       <div className="border-t" style={{ borderTopColor: FLYOUT_PANEL_COLORS.contentSeparator }} />
 
       <div className="space-y-1.5">
@@ -160,6 +169,121 @@ export function DeformationToolContent({
             </div>
           )
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── Section, colour and animation (OpenANSTRUK-3D's deformation register) ────
+
+const SECTION_HEAD = "text-[10px] font-medium uppercase tracking-wide text-gray-500"
+const PILL_ON = "bg-[#1a2f5e]/10 text-[#1a2f5e] ring-1 ring-inset ring-[#1a2f5e]"
+const PILL_OFF = "text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+const SPEEDS = [0.5, 1, 2] as const
+const COLOR_OPTIONS: { value: DeformColor; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "total", label: "Total" },
+  { value: "ux", label: "UX" },
+  { value: "uy", label: "UY" },
+]
+
+function DeformViewControls({
+  view,
+  onViewChange,
+  peaks,
+  unitSettings,
+  playbackLabel,
+}: {
+  view: DeformViewState
+  onViewChange: (patch: Partial<DeformViewState>) => void
+  peaks: DeformationPeaks
+  unitSettings: UnitSettings
+  playbackLabel?: string
+}) {
+  const unit = labelDisplacement(unitSettings)
+  const fmt = (v: number) => `${displayDisplacement(v, unitSettings).toFixed(3)}`
+  const peak = view.color === "ux" ? peaks.ux : view.color === "uy" ? peaks.uy : peaks.total
+  const hasPeak = peak > 1e-12
+  return (
+    <div className="space-y-2.5 select-none">
+      <div className="space-y-1">
+        <p className={SECTION_HEAD}>Section</p>
+        <div className="grid grid-cols-2 gap-1">
+          {([false, true] as const).map((on) => (
+            <button
+              key={String(on)}
+              type="button"
+              aria-pressed={view.extrude === on}
+              onClick={() => onViewChange({ extrude: on })}
+              className={`rounded px-2 py-1 text-[11px] transition-colors ${view.extrude === on ? PILL_ON : PILL_OFF}`}
+            >
+              {on ? "Solid" : "Wire"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <p className={SECTION_HEAD}>Colour</p>
+        <div className="grid grid-cols-4 gap-1">
+          {COLOR_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={view.color === o.value}
+              onClick={() => onViewChange({ color: o.value })}
+              className={`rounded px-1 py-1 font-mono text-[11px] transition-colors ${view.color === o.value ? PILL_ON : PILL_OFF}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {view.color !== "off" && (
+          <>
+            <div className="h-2 rounded-full" style={{ background: CONTOUR_GRADIENT }} />
+            <div className="flex justify-between font-mono text-[10px] text-gray-500">
+              {view.color === "total" ? (
+                <>
+                  <span>0</span>
+                  <span>{hasPeak ? `${fmt(peak)} ${unit}` : "—"}</span>
+                </>
+              ) : (
+                <>
+                  <span>{hasPeak ? `−${fmt(peak)}` : "—"}</span>
+                  <span>0</span>
+                  <span>{hasPeak ? `+${fmt(peak)} ${unit}` : "—"}</span>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <p className={SECTION_HEAD}>Animate</p>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onViewChange({ playing: !view.playing })}
+            title={view.playing ? "Pause" : playbackLabel ? "Play the time history" : "Animate deformation"}
+            aria-label={view.playing ? "Pause" : "Play"}
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded transition-colors ${view.playing ? PILL_ON : PILL_OFF}`}
+          >
+            {view.playing ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+          {SPEEDS.map((sp) => (
+            <button
+              key={sp}
+              type="button"
+              aria-pressed={view.speed === sp}
+              onClick={() => onViewChange({ speed: sp })}
+              className={`flex-1 rounded px-2 py-1 text-[11px] transition-colors ${view.speed === sp ? PILL_ON : PILL_OFF}`}
+            >
+              {sp}×
+            </button>
+          ))}
+        </div>
+        {playbackLabel && <p className="font-mono text-[10px] text-gray-500">{playbackLabel}</p>}
       </div>
     </div>
   )
