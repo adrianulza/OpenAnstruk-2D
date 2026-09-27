@@ -21,6 +21,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Live tab redesigned inside the OpenANSTRUK palette: the navy model itself bends (the purple copy is gone), the dimensions and ID tags step aside, diagrams keep the Analyze blue and red with one label per sign, reactions are one slate color, and amber marks the student's hand. The rope is an amber spring. Motion is playful and tuned: the frame drops in, grab rings pop, diagrams grow on grab and snap back on release, switching diagrams morphs, flipping reactions flash, and the members glow where the selected force is large. All motion constants live in `LIVE_MOTION` / `LIVE_SPRING` (`src/lib/live-physics.ts`).
 - Nav tabs use tighter padding below 640 px so every tab, Live included, fits on a phone screen.
 
+### Fixed
+
+- **Live tab drew slowly on larger models, on phones and when zoomed out.** The solver took under a millisecond per frame; the drawing took the rest. The member glow was one canvas shadow blur per segment (24 per member), every shadow radius grew with 1/zoom because canvas shadows ignore the transform, and each member, node and diagram segment was its own draw call. The glow is now a few batched paths with a layered soft edge, shadows are sized through the transform, members, nodes and diagrams are drawn as one path per style, and diagrams (constant or linear along a member in Live) are drawn from their two end values. Measured in Chrome while pulling a node (phones emulated with a 4× and 6× slower CPU): a 10 × 10 frame went from 13 to 60 fps on a laptop, and a 5 × 5 frame from 9 to 35 fps on a mid-tier phone. The picture is unchanged, except that the glow no longer beads where segments overlap and no longer balloons when zoomed out.
+
 ---
 
 ## [1.3.0] — 2026-08-12

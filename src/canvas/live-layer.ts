@@ -1,6 +1,6 @@
 import type { StructureModel, NodeId } from "@/lib/model"
 import type { AnalysisResult, MemberEndForces, NodeDisplacement } from "@/lib/solver"
-import { worldToScreen, type Rect } from "@/lib/geometry"
+import { axisCenter, SCALE, type Rect, type ScreenPoint, type WorldPoint } from "@/lib/geometry"
 import { memberPointDisplacement, LIVE_SPLINE_PTS, type LiveSystem } from "@/lib/live-solver"
 import { COLOR_BRAND, COLOR_SFD_POS, COLOR_SFD_NEG } from "@/lib/constants"
 import { LIVE_MOTION, easeOutBack, easeOutBounce, easeOutCubic, clamp01 } from "@/lib/live-physics"
@@ -24,9 +24,34 @@ const COLOR_REACTION = "#475569"
 const LABEL_FONT = (s: number, size = 12, weight = 700) => `${weight} ${size * s}px 'JetBrains Mono', monospace`
 const ZERO: NodeDisplacement = { u: 0, v: 0, theta: 0 }
 
+/**
+ * worldToScreen from geometry.ts, with the axis centre kept for the current
+ * rect. A frame converts tens of thousands of points, and the canvas passes a
+ * DOMRect, whose width and height are native getters: recomputing the centre for
+ * every point was the largest script cost of a frame on a large model.
+ */
+let centreRect: Rect | null = null
+let centre: ScreenPoint = { sx: 0, sy: 0 }
+function worldToScreen(p: WorldPoint, rect: Rect): ScreenPoint {
+  if (rect !== centreRect) { centre = axisCenter(rect); centreRect = rect }
+  return { sx: centre.sx + p.x * SCALE, sy: centre.sy - p.y * SCALE }
+}
+
 const rgba = (hex: string, a: number) => {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
   return `rgba(${r},${g},${b},${a})`
+}
+
+/**
+ * A length in the current drawing space (virtual px times s) as canvas bitmap
+ * pixels. shadowBlur and shadowOffset ignore the transform, so passing `v * s`
+ * straight through made a shadow 1/zoom times larger when zoomed out (and blur
+ * cost grows with its radius). Through the transform it keeps the on-screen size
+ * of the geometry it belongs to, at any zoom and pixel ratio.
+ */
+const devicePx = (ctx: CanvasRenderingContext2D, v: number) => {
+  const t = ctx.getTransform()
+  return v * Math.hypot(t.a, t.b)
 }
 
 type Member = LiveSystem["members"][number]
@@ -78,10 +103,12 @@ export function drawLiveGhost(ctx: CanvasRenderingContext2D, rect: Rect, model: 
   ctx.lineWidth = 2 * s
   ctx.setLineDash([6 * s, 5 * s])
   ctx.lineCap = "round"
+  ctx.beginPath()
   for (const m of sys.members) {
     const a = worldToScreen(model.nodes[m.a], rect), b = worldToScreen(model.nodes[m.b], rect)
-    ctx.beginPath(); ctx.moveTo(a.sx, a.sy + dy); ctx.lineTo(b.sx, b.sy + dy); ctx.stroke()
+    ctx.moveTo(a.sx, a.sy + dy); ctx.lineTo(b.sx, b.sy + dy)
   }
+  ctx.stroke()
   ctx.restore()
 }
 
@@ -115,8 +142,19 @@ export function drawLiveDiagram(
   const swap = kind === "MOMENT" ? opts.invertBMD : kind === "SHEAR" ? opts.invertSFD : false
   const posC = swap ? COLOR_SFD_NEG : COLOR_SFD_POS, negC = swap ? COLOR_SFD_POS : COLOR_SFD_NEG
   const from = morph?.from ?? null, mk = morph?.t ?? 1
-  const N = 40
+  // Live applies no member loads, so N and V are constant and M is linear along a
+  // member (valueAt), and so is any morph between them: the two end points draw
+  // the diagram exactly, with a sign change cut at its zero below.
+  const N = 1
   const peaks: { v: number; x: number; y: number; ax: number; ay: number }[] = []
+  // One fill path and one edge path per colour for the whole frame: a large
+  // model drew thousands of separate fills and strokes per frame otherwise.
+  const paint = new Map<string, { fill: Path2D; edge: Path2D }>()
+  const pathsFor = (c: string) => {
+    let q = paint.get(c)
+    if (!q) { q = { fill: new Path2D(), edge: new Path2D() }; paint.set(c, q) }
+    return q
+  }
 
   ctx.save()
   for (const m of sys.members) {
@@ -151,18 +189,23 @@ export function drawLiveDiagram(
     runs.push(cur)
     const mirrored = kind === "AXIAL" || from === "AXIAL"
     for (const run of runs) {
-      const mid = run[Math.floor(run.length / 2)]
-      const color = (mid.sg || run[run.length - 1].sg) >= 0 ? posC : negC
-      ctx.beginPath()
-      run.forEach((p, i) => (i ? ctx.lineTo(p.ux, p.uy) : ctx.moveTo(p.ux, p.uy)))
-      for (let i = run.length - 1; i >= 0; i--) ctx.lineTo(run[i].lx, run[i].ly)
-      ctx.closePath()
-      ctx.globalAlpha = 0.3; ctx.fillStyle = color; ctx.fill(); ctx.globalAlpha = 1
-      ctx.strokeStyle = color; ctx.lineWidth = 1.6 * s; ctx.lineJoin = "round"
-      ctx.beginPath(); run.forEach((p, i) => (i ? ctx.lineTo(p.ux, p.uy) : ctx.moveTo(p.ux, p.uy))); ctx.stroke()
-      if (mirrored) { ctx.beginPath(); run.forEach((p, i) => (i ? ctx.lineTo(p.lx, p.ly) : ctx.moveTo(p.lx, p.ly))); ctx.stroke() }
+      // A run's sign is that of any point off the zero cut (a run is [end, cut] or
+      // [cut, end] when a member's diagram changes sign).
+      const sg = run.find((p) => p.sg !== 0)?.sg ?? 0
+      const { fill, edge } = pathsFor(sg >= 0 ? posC : negC)
+      run.forEach((p, i) => (i ? fill.lineTo(p.ux, p.uy) : fill.moveTo(p.ux, p.uy)))
+      // No closePath: fill() closes each outline itself, and closePath on a path
+      // holding the whole frame costs time in proportion to the path's length.
+      for (let i = run.length - 1; i >= 0; i--) fill.lineTo(run[i].lx, run[i].ly)
+      run.forEach((p, i) => (i ? edge.lineTo(p.ux, p.uy) : edge.moveTo(p.ux, p.uy)))
+      if (mirrored) run.forEach((p, i) => (i ? edge.lineTo(p.lx, p.ly) : edge.moveTo(p.lx, p.ly)))
     }
     for (const i of [0, N]) peaks.push({ v: pts[i].v, x: pts[i].ux, y: pts[i].uy, ax: pts[i].ax, ay: pts[i].ay })
+  }
+  ctx.lineWidth = 1.6 * s; ctx.lineJoin = "round"
+  for (const [color, { fill, edge }] of paint) {
+    ctx.globalAlpha = 0.3; ctx.fillStyle = color; ctx.fill(fill); ctx.globalAlpha = 1
+    ctx.strokeStyle = color; ctx.stroke(edge)
   }
 
   if (mk >= 1 && grow > 0.85 && peaks.length) {
@@ -186,7 +229,7 @@ function pill(ctx: CanvasRenderingContext2D, text: string, x: number, y: number,
   ctx.font = LABEL_FONT(s, size)
   const w = ctx.measureText(text).width, h = (size + 10) * s
   ctx.fillStyle = "#ffffff"; ctx.strokeStyle = edge; ctx.lineWidth = 1.5 * s
-  ctx.shadowColor = "rgba(26,47,94,.12)"; ctx.shadowBlur = 6 * s; ctx.shadowOffsetY = 2 * s
+  ctx.shadowColor = "rgba(26,47,94,.12)"; ctx.shadowBlur = devicePx(ctx, 6 * s); ctx.shadowOffsetY = devicePx(ctx, 2 * s)
   ctx.beginPath(); ctx.roundRect(x - w / 2 - 8 * s, y - h / 2, w + 16 * s, h, h / 2); ctx.fill()
   ctx.shadowColor = "transparent"; ctx.stroke()
   ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.textBaseline = "middle"
@@ -197,15 +240,21 @@ function pill(ctx: CanvasRenderingContext2D, text: string, x: number, y: number,
 /**
  * Stress tint: a soft glow under each member in the diagram's sign color,
  * strongest where the selected internal force is largest.
+ *
+ * Segments are grouped by sign and by intensity (TINT_LEVELS steps) into one
+ * path each, and the soft edge is two wider, fainter strokes under the band.
+ * It used to be one stroke with a canvas shadow blur per segment: 24 blurred
+ * strokes per member made a 10 x 10 frame take over 100 ms to draw on a laptop,
+ * and far longer when zoomed out, since the blur radius grew with 1/zoom.
  */
+const TINT_LEVELS = 12
 export function drawLiveTint(
   ctx: CanvasRenderingContext2D, rect: Rect, model: StructureModel, sys: LiveSystem,
   result: AnalysisResult, shape: AnalysisResult | null, kind: NonNullable<LiveDiagram>, k: number, grow: number, s: number,
 ) {
   if (grow <= 0.01) return
   const ref = refOf(sys, kind) || 1
-  ctx.save()
-  ctx.lineCap = "round"
+  const buckets = new Map<number, { c: string; a: number; path: Path2D }>()
   for (const m of sys.members) {
     const ef = result.memberEndForces[m.id]
     if (!ef) continue
@@ -214,13 +263,30 @@ export function drawLiveTint(
       const v = valueAt(ef, ((i + 0.5) / (pts.length - 1)) * m.L, kind)
       const a = Math.min(1, Math.abs(v) / ref) * Math.min(grow, 1)
       if (a < 0.03) continue
-      const c = v >= 0 ? COLOR_SFD_POS : COLOR_SFD_NEG
-      ctx.strokeStyle = rgba(c, 0.55 * a)
-      ctx.shadowColor = rgba(c, 0.9 * a)
-      ctx.shadowBlur = 16 * s
-      ctx.lineWidth = (8 + 12 * a) * s
-      ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i + 1][0], pts[i + 1][1]); ctx.stroke()
+      const q = Math.max(1, Math.round(a * TINT_LEVELS))
+      const key = v >= 0 ? q : -q
+      let b = buckets.get(key)
+      if (!b) { b = { c: v >= 0 ? COLOR_SFD_POS : COLOR_SFD_NEG, a: q / TINT_LEVELS, path: new Path2D() }; buckets.set(key, b) }
+      b.path.moveTo(pts[i][0], pts[i][1]); b.path.lineTo(pts[i + 1][0], pts[i + 1][1])
     }
+  }
+  if (!buckets.size) return
+  const all = [...buckets.values()]
+  // Butt caps: neighbouring segments in different buckets meet edge to edge
+  // instead of overlapping in round blobs.
+  ctx.save()
+  ctx.lineCap = "butt"; ctx.lineJoin = "round"
+  for (const [growPx, alpha] of [[12, 0.14], [6, 0.22]] as const) {
+    for (const b of all) {
+      ctx.strokeStyle = rgba(b.c, alpha * b.a)
+      ctx.lineWidth = (8 + 12 * b.a + growPx) * s
+      ctx.stroke(b.path)
+    }
+  }
+  for (const b of all) {
+    ctx.strokeStyle = rgba(b.c, 0.55 * b.a)
+    ctx.lineWidth = (8 + 12 * b.a) * s
+    ctx.stroke(b.path)
   }
   ctx.restore()
 }
@@ -234,21 +300,30 @@ export function drawLiveStructure(
   ctx.save()
   ctx.lineCap = "round"; ctx.lineJoin = "round"
   ctx.strokeStyle = COLOR_BRAND; ctx.lineWidth = 4.5 * s
+  // One path for all members and one for all nodes (the grabbed node is drawn
+  // last, on top): per-member strokes made a large frame thousands of draw calls.
+  ctx.beginPath()
   for (const m of sys.members) {
     const pts = memberPoints(model, m, shape, k, rect, dy)
-    ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke()
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
   }
+  ctx.stroke()
+  const r0 = Math.max(5 * s, 1)
+  let hot: { sx: number; sy: number } | null = null
+  ctx.beginPath()
   for (const id of sys.nodeIds) {
     const p = deformedNodeScreen(model, shape, id, k, rect, dy)
     if (!p) continue
-    let r = 5 * s
-    const hot = id === grab.node
-    if (hot) {
-      const e = (grab.now - grab.at) / 1000
-      r *= 1.45 + LIVE_MOTION.nodePop * Math.exp(-7 * e) * Math.cos(20 * e)
-    }
-    ctx.fillStyle = "#ffffff"; ctx.strokeStyle = hot ? COLOR_HAND : COLOR_BRAND; ctx.lineWidth = 2.2 * s
-    ctx.beginPath(); ctx.arc(p.sx, p.sy, Math.max(r, 1), 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    if (id === grab.node) { hot = p; continue }
+    ctx.moveTo(p.sx + r0, p.sy); ctx.arc(p.sx, p.sy, r0, 0, Math.PI * 2)
+  }
+  ctx.fillStyle = "#ffffff"; ctx.strokeStyle = COLOR_BRAND; ctx.lineWidth = 2.2 * s
+  ctx.fill(); ctx.stroke()
+  if (hot) {
+    const e = (grab.now - grab.at) / 1000
+    const r = 5 * s * (1.45 + LIVE_MOTION.nodePop * Math.exp(-7 * e) * Math.cos(20 * e))
+    ctx.strokeStyle = COLOR_HAND
+    ctx.beginPath(); ctx.arc(hot.sx, hot.sy, Math.max(r, 1), 0, Math.PI * 2); ctx.fill(); ctx.stroke()
   }
   ctx.restore()
 }
@@ -270,7 +345,7 @@ export function drawLiveReactions(
     const flash = flashAt[id] ?? [-1e9, -1e9, -1e9]
     const glow = (i: number) => {
       const f = Math.max(0, 1 - (now - flash[i]) / 320)
-      if (f > 0) { ctx.shadowColor = rgba(COLOR_HAND, f); ctx.shadowBlur = 18 * f * s } else ctx.shadowColor = "transparent"
+      if (f > 0) { ctx.shadowColor = rgba(COLOR_HAND, f); ctx.shadowBlur = devicePx(ctx, 18 * f * s) } else ctx.shadowColor = "transparent"
     }
     const arrow = (dx: number, dy: number, v: number, i: number) => {
       const mag = Math.abs(v) / refR
@@ -392,8 +467,8 @@ export function drawSpringArrow(
   ctx.translate(node.sx, node.sy)
   ctx.rotate(Math.atan2(uy, ux))
   ctx.shadowColor = force.capped ? rgba(COLOR_HAND, 0.45 + 0.35 * pulse) : "rgba(26,47,94,.22)"
-  ctx.shadowBlur = (force.capped ? 10 + 10 * pulse : 6) * s
-  ctx.shadowOffsetY = force.capped ? 0 : 2 * s
+  ctx.shadowBlur = devicePx(ctx, (force.capped ? 10 + 10 * pulse : 6) * s)
+  ctx.shadowOffsetY = force.capped ? 0 : devicePx(ctx, 2 * s)
   ctx.strokeStyle = COLOR_HAND; ctx.lineWidth = (2.2 + 0.8 * k) * s; ctx.lineJoin = "round"; ctx.lineCap = "round"
   ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(lead, 0)
   const steps = coils * 12
