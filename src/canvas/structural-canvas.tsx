@@ -2944,8 +2944,7 @@ export function StructuralCanvas({
   // Deformation animation (OpenANSTRUK-3D's cycle): the factor runs
   // 0 → 1 → 0 as ½ − ½·cos(2π·f·t) at f = 0.5 Hz × speed, so one cycle takes
   // 2 s at 1×. Only the canvas redraws per frame; React is not re-rendered.
-  const drawRef = useRef(draw)
-  useEffect(() => { drawRef.current = draw }, [draw])
+  // It redraws through drawRef, the Live tab's ref to the latest draw().
   const animating =
     activeTab === "Analyze" && activeTool === "DEFORMATION" && !!analysisResult && !!deformView?.playing
   const animSpeed = deformView?.speed ?? 1
