@@ -372,7 +372,7 @@ function InteractionChart({
         {/* axis titles */}
         <SubText
           x={PAD_L + plotW / 2} y={CHART_H - 4}
-          main="Bending Moment Capacity (kN)"
+          main="Bending Moment Capacity (kN·m)"
           fill={NAVY} anchor="middle"
         />
         <g transform={`rotate(-90 12 ${PAD_T + plotH / 2})`}>

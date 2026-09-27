@@ -24,6 +24,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - **Live tab drew slowly on larger models, on phones and when zoomed out.** The solver took under a millisecond per frame; the drawing took the rest. The member glow was one canvas shadow blur per segment (24 per member), every shadow radius grew with 1/zoom because canvas shadows ignore the transform, and each member, node and diagram segment was its own draw call. The glow is now a few batched paths with a layered soft edge, shadows are sized through the transform, members, nodes and diagrams are drawn as one path per style, and diagrams (constant or linear along a member in Live) are drawn from their two end values. Measured in Chrome while pulling a node (phones emulated with a 4× and 6× slower CPU): a 10 × 10 frame went from 13 to 60 fps on a laptop, and a 5 × 5 frame from 9 to 35 fps on a mid-tier phone. The picture is unchanged, except that the glow no longer beads where segments overlap and no longer balloons when zoomed out.
+- **Column interaction chart labelled its moment axis in kN.** The Advanced Report of a reinforced concrete column read "Bending Moment Capacity (kN)" under an axis of moments; it now reads kN·m, as its own table does.
 
 ---
 
