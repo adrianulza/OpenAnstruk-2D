@@ -1,6 +1,6 @@
 /**
  * Linear time history — direct integration under a ground-motion record along
- * global X. The 2D counterpart of OpenANSTRUK-3D's `lth.ts`.
+ * global X.
  *
  * The procedure:
  *   1. Retained system: the massed free DOFs, exactly the modal pass's

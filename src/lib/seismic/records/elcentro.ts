@@ -1,4 +1,4 @@
-// Generated from the NISEE El Centro NS digitization (via OpenANSTRUK-3D) — do not hand-edit.
+// Generated from the NISEE El Centro NS digitization — do not hand-edit.
 // El Centro 1940 NS (Imperial Valley 1940-05-18, El Centro Terminal Substation, S00E).
 // Uniform dt = 0.02 s, 1560 points, PGA 0.31882 g. Unit: g.
 import type { GroundMotionRecord } from "../ground-motion"

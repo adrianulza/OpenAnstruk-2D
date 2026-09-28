@@ -1,6 +1,5 @@
 /**
- * Lumped nodal mass from the mass source — the 2D counterpart of
- * OpenANSTRUK-3D's `seismic-weight.ts`.
+ * Lumped nodal mass from the mass source.
  *
  * Every mass-source case contributes the DOWNWARD (−Y) component of its loads,
  * times its factor, lumped to the nodes by statics:

@@ -1,6 +1,6 @@
 /**
- * The deformation contour palette — OpenANSTRUK-3D's `contour-ramp.ts`, so the
- * two apps colour a displacement field identically: blue (zero or −peak)
+ * The deformation contour palette, so every view colours a displacement field
+ * identically: blue (zero or −peak)
  * through cyan, green and yellow to red (peak).
  */
 

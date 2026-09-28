@@ -28,7 +28,7 @@ import {
 } from "@/lib/deformation"
 import { contourColor, magnitudeT, signedT } from "@/lib/contour-ramp"
 
-// Extruded members (OpenANSTRUK-3D's solid palette).
+// Extruded members (solid palette).
 const COLOR_SOLID = "#8494ae"
 const COLOR_SOLID_DIMMED = "#c3cdda"
 const COLOR_SOLID_EDGE = "#1a2f5e"
@@ -601,7 +601,7 @@ export function StructuralCanvas({
           : null
         if (elev && elev.top > elev.bottom) {
           // Extruded: the member at its real in-plane section depth, offset
-          // along local 2 from the centroid (OpenANSTRUK-3D's solid view).
+          // along local 2 from the centroid (solid view).
           const L = Math.hypot(b.x - a.x, b.y - a.y)
           const nx = -(b.y - a.y) / L
           const ny = (b.x - a.x) / L
@@ -2941,7 +2941,7 @@ export function StructuralCanvas({
     return () => window.removeEventListener("resize", handleResize)
   }, [draw])
 
-  // Deformation animation (OpenANSTRUK-3D's cycle): the factor runs
+  // Deformation animation: the factor runs
   // 0 → 1 → 0 as ½ − ½·cos(2π·f·t) at f = 0.5 Hz × speed, so one cycle takes
   // 2 s at 1×. Only the canvas redraws per frame; React is not re-rendered.
   // It redraws through drawRef, the Live tab's ref to the latest draw().

@@ -5,7 +5,7 @@
  * and the mode count, which is automatic. The mass source is document-level —
  * every earthquake case reads the same mass — so this is its only editor.
  *
- * Same frame and row family as the seismic window (OpenANSTRUK-3D style):
+ * Same frame and row family as the seismic window:
  * portal card, draft-and-commit, Escape cancels.
  */
 

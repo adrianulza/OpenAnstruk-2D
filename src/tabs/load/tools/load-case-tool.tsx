@@ -72,7 +72,7 @@ export function LoadCaseToolContent({
             onPatch={(patch) => {
               onPatchLoadCase(c.id, patch)
               // Turning a case into an earthquake case opens its definition,
-              // as in OpenANSTRUK-3D: a Seismic row is otherwise just a label.
+              // since a Seismic row is otherwise just a label.
               if (patch.kind === "Seismic" && c.kind !== "Seismic") onEditSeismic(c.id)
             }}
             onDelete={() => onDeleteLoadCase(c.id)}
@@ -151,7 +151,7 @@ function CaseRow({
       {/* Col 3 — kind abbreviation pill (D, L, Lr, W, E, R). Derived from kind,
                  read-only. Reinforces the shorthand used in combo expressions. */}
       {/* On the Modal and Seismic rows the chip is also the way in to that
-          case's settings window (OpenANSTRUK-3D's pattern): a navy ring
+          case's settings window: a navy ring
           button. Everywhere else it stays a plain chip, so nothing suggests a
           Dead case has a definition to open. */}
       <div className="flex items-center justify-center">

@@ -1,6 +1,5 @@
 /**
- * The earthquake load-case definition — the 2D subset of OpenANSTRUK-3D's
- * `SeismicDefinition`.
+ * The earthquake load-case definition for a plane frame.
  *
  * Pure: no React, no model.
  *

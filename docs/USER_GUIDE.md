@@ -99,7 +99,7 @@ The locked **Vibration analysis** case sits at the top of the LOAD CASE table, a
 - **Results**: tick the case, go to Analyze, choose **Load Case → Vibration analysis**. A mode picker appears beside it and the canvas draws the selected mode shape (the Deformation tool opens automatically). The table in the bottom-right corner lists T, f, the X and Y participation of each mode and their running sums; click a row to draw that mode.
 
 ### EARTHQUAKE (Seismic cases)
-Set a case's Type to **Seismic** and the earthquake window opens. Its **E** chip reopens it at any time. The layout follows OpenANSTRUK-3D:
+Set a case's Type to **Seismic** and the earthquake window opens. Its **E** chip reopens it at any time. The window is laid out as follows:
 
 - **Code**: SNI 1726:2019 (default) or ASCE 7-16.
 - **Analysis method**: **Static equivalent (ELF)** or **Response spectrum (MRS)**. The chip reads **EM** for a response-spectrum case and **ET** for a time-history case.
@@ -163,7 +163,7 @@ Displays the deformed shape. Use the scale slider to exaggerate deformations for
 ---
 
 
-The Deformation panel also carries three OpenANSTRUK-3D-style controls:
+The Deformation panel also carries three display controls:
 
 - **Section: Wire / Solid.** Solid draws every member at its real in-plane section depth (flange and wall lines included), and the deformed shape as a band that stays normal to the deflected axis. The same switch is **Extruded Sections** in Settings, and it applies on every tab. Sections without a parametric shape use the depth of the equivalent rectangle, h = √(12·I/A).
 - **Colour: Off / Total / UX / UY.** Contours the deformed shape blue → cyan → green → yellow → red. Total maps |u| from 0 to the peak; UX and UY map the signed component from −peak to +peak. The legend under the buttons shows the range.

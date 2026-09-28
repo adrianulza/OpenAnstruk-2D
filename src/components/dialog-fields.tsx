@@ -5,8 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { Z_MENU } from "@/lib/z-layers"
 
 /**
- * Parameter-row family for the settings windows (Modal, Seismic), ported from
- * OpenANSTRUK-3D's `templates/fields.tsx` so the two apps' windows read alike.
+ * Parameter-row family for the settings windows (Modal, Seismic), so every
+ * settings window reads alike.
  *
  * Every row is `[label flex-1] [control 64px] [unit cell]`. One control size
  * for numbers, pickers and read-outs keeps a single right edge down a column;

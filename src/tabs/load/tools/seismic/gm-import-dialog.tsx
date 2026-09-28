@@ -1,5 +1,5 @@
 /**
- * Import a ground-motion record — ported from OpenANSTRUK-3D's import window.
+ * Import a ground-motion record.
  *
  * One acceleration per line (blank lines skipped, `#` lines are comments),
  * pasted or read from a text file, at a uniform Δt. The preview is the same

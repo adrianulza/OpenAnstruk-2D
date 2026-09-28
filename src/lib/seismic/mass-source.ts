@@ -6,7 +6,7 @@
  * One per document, stored on the Modal case (`LoadCase.modal`). Mass is a
  * property of the building, not of an earthquake case: the modal solution and
  * every seismic case read the same mass: one mass source shared by every
- * seismic case, as in OpenANSTRUK-3D's `mass-source.ts`.
+ * seismic case.
  *
  * ⚠ ONLY GRAVITY CASES ARE ELIGIBLE. Dead (Selfweight and SIDL included) at 1.0
  * and any live load at 0.25 by default; wind, rain, snow and the seismic cases

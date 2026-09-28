@@ -1,8 +1,7 @@
 /**
  * Define Seismic Load — ASCE 7-16 / SNI 1726:2019, for a plane frame.
  *
- * Ported from OpenANSTRUK-3D's seismic window: the same row family, spectrum
- * chart and summary strip, laid out as boxed panels. Unless the screen is
+ * The seismic window: the settings row family, spectrum chart and summary strip, laid out as boxed panels. Unless the screen is
  * roomy (≥1024 × 720) the window shows Settings or Results at a time, so a
  * phone never scrolls.
  * The 2D port drops what a plane frame has no use for: the direction (always

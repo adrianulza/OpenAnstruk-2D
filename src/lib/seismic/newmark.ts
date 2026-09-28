@@ -1,6 +1,5 @@
 /**
- * Newmark-β direct integration on a small dense linear system — the linear
- * half of OpenANSTRUK-3D's `newmark.ts`.
+ * Newmark-β direct integration on a small dense linear system.
  *
  * Pure and model-free: matrices in, histories out. Defaults are the average-
  * acceleration member of the family (γ = 1/2, β = 1/4): unconditionally stable

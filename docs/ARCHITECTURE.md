@@ -371,7 +371,7 @@ It returns a typed `DiagnosticsReport { status, issues[] }` with three statuses 
 | `mass-source.ts` | Mass source on the Modal case: eligible kinds (Dead 1.0, Live / Roof Live 0.25), reconciliation with the case list |
 | `mass.ts` | Lumped nodal weight from the downward load of each mass-source case (Selfweight from γ·A·L) |
 | `modal.ts` | Guyan condensation onto the massed DOFs (exact for lumped mass), then M^−½K̂M^−½ solved with Householder + QL. All modes kept, so participation sums to 100 % |
-| `site.ts`, `spectrum.ts`, `period.ts`, `elf.ts`, `sdc.ts` | Ported unchanged from OpenANSTRUK-3D: Fa/Fv, the design spectrum, Ta and Cu, Cs and k, SDC |
+| `site.ts`, `spectrum.ts`, `period.ts`, `elf.ts`, `sdc.ts` | SNI 1726:2019 / ASCE 7-16 site coefficients and spectrum: Fa/Fv, the design spectrum, Ta and Cu, Cs and k, SDC |
 | `definition.ts` | `SeismicDefinition` on `LoadCase.seismic` (2D subset: no direction, eccentricity or time history) |
 | `run.ts` | `seismicLadder`, ELF per node (h from the lowest support), MRS with signed CQC and ELF scaling |
 | `ground-motion.ts`, `records/elcentro.ts` | Records (uniform Δt, g or m/s²), resampling, El Centro 1940 NS |

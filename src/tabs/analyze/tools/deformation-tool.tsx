@@ -174,7 +174,7 @@ export function DeformationToolContent({
   )
 }
 
-// ── Section, colour and animation (OpenANSTRUK-3D's deformation register) ────
+// ── Section, colour and animation ────────────────────────────────────────────
 
 const SECTION_HEAD = "text-[10px] font-medium uppercase tracking-wide text-gray-500"
 const PILL_ON = "bg-[#1a2f5e]/10 text-[#1a2f5e] ring-1 ring-inset ring-[#1a2f5e]"
