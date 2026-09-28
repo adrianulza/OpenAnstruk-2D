@@ -6,10 +6,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [2.0.0] — Unreleased
+
+**Dynamic analyses and the Live tab.** 2.0.0 adds modal, equivalent lateral
+force, response-spectrum and linear time-history analysis, saves the whole
+document rather than the model alone, and adds Live mode, in which the student
+pulls a node and watches the structure respond. It is the version described in
+the journal paper on OpenAnstruk-2D and is released, and archived with a DOI,
+when that paper is published.
 
 ### Added
 
+- **Modal analysis.** Lumped masses from a mass source, the rotational degrees of freedom condensed out, and every mode solved (Householder reduction and QL), so mass participation reaches 100 %. Modal and Seismic settings windows, and mode shapes on the Analyze tab drawn with extruded sections and deformation colours.
+- **Earthquake load cases to SNI 1726:2019:** equivalent lateral force and response spectrum with CQC combination and ELF scaling, with the spectrum and time-history forces combined at stations along each member.
+- **Linear time-history analysis along global X.** Newmark average acceleration on the condensed system, Rayleigh damping fitted at the first mode and the mode at which the X mass reaches 90 %, El Centro 1940 NS built in and records importable (.txt, .csv, .at2). The signed peak envelope enters combinations like any case, and roof displacement and base-shear histories can be played back.
+- **Document format 2** saves load cases, combinations, seismic definitions, imported records and design settings with the model; every field is checked on load, and model-only files still open.
+- The analysis runs in a Web Worker, so the page stays responsive during long runs, and the modal, ELF, spectrum and time-history steps are cached on what they depend on.
+- `npm run verify:dynamics`: closed-form checks of the dynamic engine (see `docs/VALIDATION_DYNAMICS.md`).
 - **Live tab: pull the structure with a rope.** Press on any free node and drag. The rope is the point load: its direction is the load direction and its length sets the magnitude linearly, up to 100 kN. The structure deforms with a gentle spring (a slight lag, a bump when the rope goes taut, a wobble on release), while the selected N / V / M diagram and the support reactions grow, rotate and flip in real time at fixed reference scales. Live has no side panel: the diagram buttons, a deformation slider (0.1× to 10×, drawing only) and a live equilibrium chip float on the canvas, and an unstable model shows a warning there instead. Shift snaps the rope to 45°. Works with touch. Live mode ignores model loads and keeps no state: leaving the tab discards everything.
 - `src/lib/live-solver.ts`: factor-once, superpose-per-frame solver for a single moving nodal load, verified against `analyze()`.
 - Unit tests with Vitest (`npm test`).

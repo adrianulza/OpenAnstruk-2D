@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use OpenAnstruk-2D, please cite it as below."
+type: software
+title: "OpenAnstruk-2D"
+abstract: >-
+  An open-source program for the linear static, modal and response history
+  analysis and the design of plane frames and trusses that runs in a web
+  browser, with a Live mode in which the user pulls a node and the deformed
+  shape, internal forces and reactions follow at display rate.
+authors:
+  - family-names: "Ulza"
+    given-names: "Adrian"
+    affiliation: "Universitas Syiah Kuala"
+version: "2.0.0"
+license: MIT
+repository-code: "https://github.com/adrianulza/OpenANSTRUK-2D"
+url: "https://openanstruk.org/app"
+keywords:
+  - structural analysis
+  - direct stiffness method
+  - structural engineering education
+  - web browser
+  - Timoshenko beam
