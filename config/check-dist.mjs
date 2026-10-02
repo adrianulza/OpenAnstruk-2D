@@ -34,7 +34,6 @@ const dist = join(root, "dist")
 const EXPECTED_HTML = new Set([
   "index.html",
   "app.html",
-  "donation.html",
 ])
 
 // ⚠ There is deliberately NO validation.html. A public validation report is
@@ -44,11 +43,9 @@ const EXPECTED_HTML = new Set([
 // ⚠ No page may ship a link that goes nowhere. A support card that looks live
 // and leads to a 404 costs more trust than a card that plainly is not ready.
 //
-// This matches an href, not the word anywhere in the file — html/donation.html
-// carries REPLACE-ME inside a comment that explains how to turn a greyed-out
-// card into a real link, and those instructions must not fail the build they
-// are warning about. The pending cards are <div>s with no href precisely so
-// that "not ready yet" cannot become "dead link".
+// This matches an href, not the word anywhere in a file, so a comment that
+// mentions a placeholder cannot fail the build. An element that is not ready
+// yet carries no href, so that "not ready yet" cannot become "dead link".
 const DEAD_HREF = /href\s*=\s*"(\s*|REPLACE-ME)"/i
 
 let failed = false

@@ -20,7 +20,6 @@ export default defineConfig({
           '/': '/html/index.html',
           '/app': '/html/app.html',
           '/2d': '/html/app.html',
-          '/donation': '/html/donation.html',
         }
         server.middlewares.use((req, _res, next) => {
           const url = req.url ?? ''
@@ -55,7 +54,6 @@ export default defineConfig({
       input: {
         index: path.resolve(__dirname, '../html/index.html'),
         app: path.resolve(__dirname, '../html/app.html'),
-        donation: path.resolve(__dirname, '../html/donation.html'),
       },
     },
   },

@@ -1,4 +1,4 @@
 /            /html/index.html       200
 /app         /html/app.html         200
 /2d          /html/app.html         200
-/donation    /html/donation.html    200
+/donation    /                      301

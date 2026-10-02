@@ -197,7 +197,6 @@ async function main() {
   banner(origin, [
     { label: 'Landing', path: '' },
     { label: '2D app', path: '2d' },
-    { label: 'Support', path: 'donation' },
     ...(local.apps ?? []).flatMap((a) => a.routes ?? []),
   ])
 }

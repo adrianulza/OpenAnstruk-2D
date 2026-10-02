@@ -27,6 +27,10 @@ when that paper is published.
 - `src/lib/live-solver.ts`: factor-once, superpose-per-frame solver for a single moving nodal load, verified against `analyze()`.
 - Unit tests with Vitest (`npm test`).
 
+### Removed
+
+- **The Support (donation) page.** `/donation` now redirects to the home page, and the landing page no longer links to it.
+
 ### Changed
 
 - `localStiffness`, `condensedTrussElement` and `transformMatrix` are exported from `solver.ts`, and the per-section shear rigidity moved into an exported `sectionShearRigidity()`. `analyze()` behaves exactly as before.
