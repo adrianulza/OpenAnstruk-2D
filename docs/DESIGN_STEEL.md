@@ -225,7 +225,7 @@ sagging and "Non-Compact" hogging. The reported
 > precisely on `My` and hands over to F7-3 with no step. Paired with 1.49 the
 > bracket reaches 1.319, F7-2 undershoots `My`, and the F7-2 → F7-3 handover
 > opens a 0.16 % upward discontinuity — caught by the monotonicity check in
-> `validation/steel_boundary_sweep.mts`. AISC Table B4.1b case 17, which
+> the boundary sweep test. AISC Table B4.1b case 17, which
 > Chapter F7 actually references, covers "rectangular HSS **and boxes** of
 > uniform thickness" in one row at 1.40. The 1.49 row, case 18, covers
 > cover/diaphragm plates between lines of welds, which is not the case F7 is
@@ -312,7 +312,7 @@ value is `≥ 0`. A sign change always exists between them.
 > returns only the coupled root. E4-4 keeps every root, because for a genuinely
 > unsymmetric section none of them decouple. They reconcile because
 > `compressionStrength` takes `min(Fe_flexural, Fe_E4)`, so the flexural mode is
-> counted exactly once either way. `steel_angle_tee_clauses.mts` asserts that as
+> counted exactly once either way. steel angle tee clauses test asserts that as
 > an invariant (`Pn` continuity across the branch), not as a comment.
 
 **Kz = K22 and Lz = the full member length.** Nothing that shortens `Lb` is
@@ -451,7 +451,7 @@ The stem-in-compression branch has **no plateau**: F9-13 binds at every `Lb`. As
 `Lb → 0`, `Mcr → ∞` and `Mn → My`, so it stays continuous with yielding, and the
 opposite sign of `B` collapses the bracket `B + √(1+B²)` toward zero instead of
 letting it grow. That is what makes a hogging tee so much weaker — measured at
-**31.4 vs 60.0 kN·m** on the same WT300×200 in `steel_pipeline_smoke.mts`.
+**31.4 vs 60.0 kN·m** on the same WT300×200 in steel pipeline test.
 
 > **F9-9's radical grouping.** AISC F9-9 has `√(Iy·J)` **over** `Sx`, giving
 > `mm⁴/mm³ = mm`, as `Lr` must be a length. Grouping it as `√(Iy·J/S33)` would
@@ -629,7 +629,7 @@ Symmetric **Rolled** Compact Members…"* and this engine models its parametric 
 as built-up throughout, so the clause would not strictly apply to it. That
 question is now moot.
 
-`validation/steel_boundary_sweep.mts` §K asserts the removal — no axial level may
+The boundary sweep test asserts the removal — no axial level may
 produce an `H1-2` result.
 
 ---
@@ -706,7 +706,7 @@ read: `pmPairs` (every `(P, M)` actually checked), `McW`/`McZ`/`MrW`/`MrZ`
 > **`Lp`, `Lr` and `Lb` are all in METRES** on the result object, consistent with
 > its kN and kN·m. Chapter F works in mm internally. They were briefly mixed
 > (mm for `Lp`/`Lr`, metres for `Lb`), which is a 1000× trap; the unit is now
-> asserted in `steel_pipeline_smoke.mts`, not assumed.
+> asserted in steel pipeline test, not assumed.
 
 ### S11.1 The STEEL tool
 
@@ -769,7 +769,7 @@ control, because a control would advertise an effect it does not have, and
 because role is a per-MEMBER property that a per-section field cannot express
 when one section serves both a beam and a column.
 
-`validation/steel_member_role.mts` asserts the boundaries, the i↔j invariance,
+The member-role test asserts the boundaries, the i↔j invariance,
 and — the assertion that matters — that `ratio`, `equation`, `PcComp`, `Mc33`,
 `Vc`, `Cb`, `Fcr` and `Fe` are **identical** across all three roles.
 
@@ -818,7 +818,7 @@ CRITERIA flyout and the STEEL tool rather than left to this document.
 `lib/design/steel/seismic.ts`. **Opt-in, and inert by default:** the framing type
 defaults to OMF/RMB, for which `checkSeismic` returns `undefined` and the result
 is byte-identical to a run with no seismic code at all. This is asserted, not
-assumed — `validation/steel_seismic.mts` §B checks that `ratio`, `equation`,
+assumed — the seismic test checks that `ratio`, `equation`,
 `PcComp`, `Mc33`, `Vc` and `shearRatio` are unchanged between OMF and SMF.
 
 **Moment frames only, three classes:**
@@ -867,7 +867,7 @@ it separately as `⚠D1.1`, the way RC flags `⚠Ash`.
 > `@unverified` tag at its definition. They are isolated in the `D1_1` and `D1_2`
 > constants so correcting them is a single-file edit.
 >
-> `validation/steel_seismic.mts` therefore asserts **structure, not values**:
+> The seismic test therefore asserts **structure, not values**:
 > class distinctness, `λhd < λmd` everywhere, monotonicity and continuity of the
 > web limit in `Ca`, the floor, and the OMF inertness invariant. A coefficient
 > typo survives most of that; a structural error does not.
@@ -897,28 +897,27 @@ Two independent axes: published AISC worked examples, and independent
 recomputation (exact polygon integration for section geometry, clause-by-clause
 branch and continuity sweeps) that shares no code with the engine under test.
 
-| Script | Anchors | Result |
+| Check | Anchors | Result |
 |---|---|---|
-| `validation/steel_flexure_verify.mts` | AISC 360-16 Example 0001 — W18x50, LTB at `Lb` = 5 / 11.667 / 35 ft spanning all three zones: flange & web λ/λp, `Lp` = 5.835 ft, `Lr` = 16.966 ft, `Mp` = 5050 k-in, `Cb` = 1.002 / 1.014 / 1.136, `φMn` = 378.750 / 306.657 / 94.218 k-ft. Feeds **catalogue** W18x50 properties, isolating the LTB math from our parametric geometry | **14/14** |
-| `validation/steel_column_verify.mts` | AISC 360-16 Example 0002 — built-up W-shape with a **slender web**: `λ` flange 4.0 / web 60.0 vs `λr` 35.9, `KL/ry` = 86.6, `Fe` = 38.18 ksi, `Fcr` = 28.9 ksi, `c1` = 0.18, `be` = 12.6 in, `Aeff` = 19.1 in², `φcPn` = 497.9 kips | **15/15** |
-| `validation/steel_boundary_sweep.mts` | Boundary, continuity and degenerate-input behaviour: E7 inert on compact sections, `Lb → 0 ⇒ Mn = Mp`, continuity across `Lp` and `Lr`, elastic-LTB tail, monotonicity of `Mn(Lb)` and `Pn(KL/r)`, CHS F8 branch continuity + the `0.45E/Fy` limit, RHS G4 `Cv2` across all three branches, F7 branch continuity, H1-1a ≡ H1-1b at exactly `Pr/Pc = 0.2`, and that no axial level yields an `H1-2` result (H1.3 removal) | **87/87** |
-| `validation/steel_pipeline_smoke.mts` | End-to-end **wiring** through the real `runDesign()`: unit sanity, `Lp < Lb < Lr` branch agreement, pipeline `Mn` ≡ a direct capacity call, mixed RC + steel in one run, refusal paths. Asserts **invariants** (doubling the load doubles the D/C exactly; capacity is load-independent) rather than transcribed numbers, so it cannot reproduce a transcription error | **41/41** |
-| `validation/steel_angle_tee_props.mts` | **Angle + tee section geometry**, every reference recomputed here by exact polygon contour integration (Green's theorem + 4-point Gauss-Legendre, exact for the degree-≤4 integrands), sharing no code with `principal.ts`. Covers `A, Ix, Iy, Ixy, α, Iw, Iz, Sw, Sz, βw`, shear centre, both leg orientations, the `{b,t}` back-compat path, and the `βw = 0` / `z0 = 0` identities for equal legs | **68/68** |
-| `validation/steel_angle_tee_clauses.mts` | **F9 / F10 / E4 / G3 / H2 branch + continuity sweep.** F9 sign split and both LTB handovers, the F9-9 dimensional check, F10 branch continuity and the `βw = 0` collapse, `E4-4 → min(Fe22, E4-3)` plus `Pn` continuity across the branch, the cubic residual, G3's `Cv2` boundaries, and H2 ≥ H1 at three axial levels | **79/79** |
-| `validation/steel_seismic.mts` | **AISC 341 detailing — structure, not coefficients** (see [§S11.4.1](#-s1141-coefficient-provenance--read-before-relying-on-this)). OMF produces no seismic block and an OMF run is byte-identical to an SMF run in every strength field; the three classes are distinct; every `λhd` is strictly below its `λmd` twin; the web limit is monotonic, continuous and floored in `Ca`; `Ca` round-trips through its own definition; tension gives `Ca = 0`; D1.2 applies to beams only; SCWB responds to axial and to the `1.1·Ry` beam term. **It is what found the mis-transcribed highly-ductile web coefficient** | **39/39** |
-| `validation/steel_member_role.mts` | **Member role.** Classification at and around both 15° boundaries, i↔j swap invariance over 360 sampled angles, translation invariance, the degenerate zero-length case — and the invariant that matters: `ratio`, `equation`, `PcComp`, `PcTens`, `Mc33`, `Vc`, `shearRatio`, `Cb`, `Lb`, `slenderness`, `Fcr`, `Fe` are **identical** for the same member run as beam, column and brace. Also pins `Lb = L` and `Cb` = the F1-1 value | **31/31** |
-| `validation/steel_ui_smoke.mts` | **Render smoke test for the STEEL UI.** `npm run build` type-checks the decks but never runs them, so a bad index or a divide-by-zero in a chart scale would ship silently. Renders the preview, both charts and the tool to static markup with `react-dom/server` across all five shapes plus the degenerate inputs a user can actually produce (shapeless section, `t ≥ leg`, zero dims, no result yet); asserts finite curve values, monotonic `φMn(Lb)` and no `NaN` in any SVG coordinate. **It is what found the F9-10 cancellation** ([§S6.3](#s63-f9--tees-the-sign-dependent-shape)). Also asserts the element-type control is *absent* and that a 45° member routes to the brace report | **94/94** |
-| `validation/run_all.mjs` | Unattended aggregator: every `*.mts`/`*.mjs` suite + `npm run build` + `npm run lint` in one command. Lint is gated against a recorded baseline so a pre-existing hooks-rule error does not mask a new one | **20 suites** |
+| Steel flexure, worked example | AISC 360-16 Example 0001 — W18x50, LTB at `Lb` = 5 / 11.667 / 35 ft spanning all three zones: flange & web λ/λp, `Lp` = 5.835 ft, `Lr` = 16.966 ft, `Mp` = 5050 k-in, `Cb` = 1.002 / 1.014 / 1.136, `φMn` = 378.750 / 306.657 / 94.218 k-ft. Feeds **catalogue** W18x50 properties, isolating the LTB math from our parametric geometry | **14/14** |
+| Steel column, worked example | AISC 360-16 Example 0002 — built-up W-shape with a **slender web**: `λ` flange 4.0 / web 60.0 vs `λr` 35.9, `KL/ry` = 86.6, `Fe` = 38.18 ksi, `Fcr` = 28.9 ksi, `c1` = 0.18, `be` = 12.6 in, `Aeff` = 19.1 in², `φcPn` = 497.9 kips | **15/15** |
+| Boundaries and continuity | Boundary, continuity and degenerate-input behaviour: E7 inert on compact sections, `Lb → 0 ⇒ Mn = Mp`, continuity across `Lp` and `Lr`, elastic-LTB tail, monotonicity of `Mn(Lb)` and `Pn(KL/r)`, CHS F8 branch continuity + the `0.45E/Fy` limit, RHS G4 `Cv2` across all three branches, F7 branch continuity, H1-1a ≡ H1-1b at exactly `Pr/Pc = 0.2`, and that no axial level yields an `H1-2` result (H1.3 removal) | **87/87** |
+| End-to-end wiring | End-to-end **wiring** through the real `runDesign()`: unit sanity, `Lp < Lb < Lr` branch agreement, pipeline `Mn` ≡ a direct capacity call, mixed RC + steel in one run, refusal paths. Asserts **invariants** (doubling the load doubles the D/C exactly; capacity is load-independent) rather than transcribed numbers, so it cannot reproduce a transcription error | **41/41** |
+| Angle and tee geometry | **Angle + tee section geometry**, every reference recomputed here by exact polygon contour integration (Green's theorem + 4-point Gauss-Legendre, exact for the degree-≤4 integrands), sharing no code with `principal.ts`. Covers `A, Ix, Iy, Ixy, α, Iw, Iz, Sw, Sz, βw`, shear centre, both leg orientations, the `{b,t}` back-compat path, and the `βw = 0` / `z0 = 0` identities for equal legs | **68/68** |
+| Angle and tee clauses | **F9 / F10 / E4 / G3 / H2 branch + continuity sweep.** F9 sign split and both LTB handovers, the F9-9 dimensional check, F10 branch continuity and the `βw = 0` collapse, `E4-4 → min(Fe22, E4-3)` plus `Pn` continuity across the branch, the cubic residual, G3's `Cv2` boundaries, and H2 ≥ H1 at three axial levels | **79/79** |
+| AISC 341 detailing | **AISC 341 detailing — structure, not coefficients** (see [§S11.4.1](#-s1141-coefficient-provenance--read-before-relying-on-this)). OMF produces no seismic block and an OMF run is byte-identical to an SMF run in every strength field; the three classes are distinct; every `λhd` is strictly below its `λmd` twin; the web limit is monotonic, continuous and floored in `Ca`; `Ca` round-trips through its own definition; tension gives `Ca = 0`; D1.2 applies to beams only; SCWB responds to axial and to the `1.1·Ry` beam term. **It is what found the mis-transcribed highly-ductile web coefficient** | **39/39** |
+| Member role | **Member role.** Classification at and around both 15° boundaries, i↔j swap invariance over 360 sampled angles, translation invariance, the degenerate zero-length case — and the invariant that matters: `ratio`, `equation`, `PcComp`, `PcTens`, `Mc33`, `Vc`, `shearRatio`, `Cb`, `Lb`, `slenderness`, `Fcr`, `Fe` are **identical** for the same member run as beam, column and brace. Also pins `Lb = L` and `Cb` = the F1-1 value | **31/31** |
+| Steel UI render | **Render smoke test for the STEEL UI.** `npm run build` type-checks the decks but never runs them, so a bad index or a divide-by-zero in a chart scale would ship silently. Renders the preview, both charts and the tool to static markup with `react-dom/server` across all five shapes plus the degenerate inputs a user can actually produce (shapeless section, `t ≥ leg`, zero dims, no result yet); asserts finite curve values, monotonic `φMn(Lb)` and no `NaN` in any SVG coordinate. **It is what found the F9-10 cancellation** ([§S6.3](#s63-f9--tees-the-sign-dependent-shape)). Also asserts the element-type control is *absent* and that a 45° member routes to the brace report | **94/94** |
 
 **Coverage across the five shapes.** The two published worked examples are both
 I-shapes. RHS, CHS, tee and angle are covered by the independent geometry
-recomputation in `steel_angle_tee_props.mts` and by the clause, continuity and
+recomputation in steel angle tee props test and by the clause, continuity and
 invariant sweeps above. The deliberate conservative simplifications specific to
 the tee and angle are listed in
 [§S14.1](#s141-known-conservative-simplifications-tee--angle).
 
 **Orientation.** IWF, RHS and CHS are doubly symmetric, so an axis mix-up is
-invisible in them; a tee and an angle would expose one. `steel_angle_tee_props.mts`
+invisible in them; a tee and an angle would expose one. steel angle tee props test
 checks both leg orientations of an unequal angle, so a swapped axis fails there.
 
 An **adversarial cross-check** was run in two blind halves — one agent
@@ -999,7 +998,7 @@ For an **unequal-leg** angle F10-4 is always evaluated with the real `A` and
 | 6 | With an empty `efByCombo` the station loop never runs, `best.ratio` stays −1, and `pass` reports **true** with `worstFlexureDC = 0` | `strategy.ts` | None today — `run-design.ts` catches the empty case first | Unreachable; latent if that guard is ever removed |
 | 7 | **`tee.ts` defaults are a concrete slab-beam** (`bf 1000, tf 100, bw 300, h 600`), not a steel WT | `sections/shapes/tee.ts` | A user picking a steel tee in the MATERIAL tool starts from an implausible section and must retype every dimension | `defaults` is shared between the concrete and steel paths; making it material-aware is a MATERIAL-tool change, not a design one |
 | 8 | `S33b`/`S33t` mean **opposite ends** for a tee and an angle | `sections/shapes/{tee,angle}.ts` | None today — the angle path reads `principal.SwMin`/`SzMin` and never touches them. Latent if a future consumer assumes `S33b` is always the governing modulus | Renaming them to `S33min`/`S33max` would touch every shape and the persisted `derived` cache. Documented in both shape headers instead |
-| 9 | **Six pre-existing ESLint errors** (`react-hooks/refs`, `react-hooks/immutability`) in `App.tsx` and `structural-canvas.tsx` | outside the design engine | None to design. They predate this work and are unrelated to it | `validation/run_all.mjs` gates lint against a recorded baseline (6 errors / 28 warnings) so a **new** problem still fails the suite. Lower the baseline when they are fixed; never raise it |
+| 9 | **Six pre-existing ESLint errors** (`react-hooks/refs`, `react-hooks/immutability`) in `App.tsx` and `structural-canvas.tsx` | outside the design engine | None to design. They predate this work and are unrelated to it | Lint is gated against a recorded baseline (6 errors / 28 warnings) so a **new** problem still fails. Lower the baseline when they are fixed; never raise it |
 
 **Closed since the last revision.** An earlier entry claimed that `Sc` should be
 taken over the two leg toes only, making our heel-inclusive `Sc` a conservative
@@ -1012,4 +1011,4 @@ value. The remaining major-axis simplification is §S14.1 C.
 *Cross-references:* the material-agnostic core is in
 [`DESIGN_RULES.md`](DESIGN_RULES.md); reinforced concrete is in
 [`DESIGN_RC.md`](DESIGN_RC.md). Solver sign conventions and the analysis pipeline
-are in [`CLAUDE.md`](../CLAUDE.md) and [`docs/ARCHITECTURE.md`](ARCHITECTURE.md).
+are in [`docs/ARCHITECTURE.md`](ARCHITECTURE.md).

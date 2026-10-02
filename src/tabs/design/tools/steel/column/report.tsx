@@ -180,7 +180,7 @@ export function SteelColumnReportDeck({
 // ── interaction chart ────────────────────────────────────────────────────────
 
 /**
- * Exported for `validation/steel_ui_smoke.mts` — see the note on `LtbChart`:
+ * Exported for the render test — see the note on `LtbChart`:
  * the deck portals into `document.body`, so a render test cannot reach the
  * chart's scale arithmetic through it.
  */

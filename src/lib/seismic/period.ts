@@ -19,7 +19,7 @@
  *
  * `taFrom` is exported separately so a caller with its own (Ct, x) — a published
  * example in imperial units, say — can use the same ladder without the metric
- * table. `validation/suites/smoke_seismic_elf.mts` §1 does exactly that.
+ * table. a regression test does exactly that.
  */
 
 export type StructuralSystem =

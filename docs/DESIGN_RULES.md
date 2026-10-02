@@ -46,7 +46,7 @@ for it, not by hoping a station landed near it.
 **Capacity is explicit.** Every capacity traces to a clause, computed from first
 principles — strain compatibility, the Whitney block, an effective width — never
 a lookup table. Every engineering formula cites its clause in a comment, and
-where it anchors a known worked example it also carries a `validation/`
+where it anchors a known worked example it also carries a regression
 assertion.
 
 **A wrong answer is worse than no answer.** Where a section falls outside the
@@ -239,7 +239,7 @@ left a dropdown on screen that could not be opened onto anything, beneath a
 verdict reading `none`. The early return sits **after every hook**, never before
 one; hoisting it above them would change hook order between renders.
 
-Asserted in `validation/design_section_offer_smoke.mts`, with the unassigned
+Asserted in a regression test, with the unassigned
 section listed **first** in every fixture catalogue — so a pane that lost the
 filter would fall back to it and the suite would fail rather than pass by
 accident. The empty states are asserted by **exact equality**, since `includes`
@@ -300,7 +300,7 @@ is no St-Venant torsion to scope out. The cost is a labelling convention
 ### 3.4 Tension/compression faces ≡ ±local-2
 "Top" and "bottom" bars map to the member's **+local-2 / −local-2** faces, not
 gravity-up/down (local-2 = local-1 rotated +90° CCW; see the solver sign
-conventions in `CLAUDE.md`). Consequences:
+conventions in `docs/ARCHITECTURE.md`). Consequences:
 - `MuPos` (sagging) puts the **−local-2** fibre (bottom) in tension.
 - `MuNeg` (hogging) puts the **+local-2** fibre (top) in tension.
 - For vertical/inclined members this is the *local* frame — consistent with the
@@ -389,7 +389,7 @@ required-mode branch at any `D/C > 0`.
 **Totality is the invariant.** Every reachable `MemberDesignResult` produces a
 non-empty top label. A member that renders nothing reads as "the design did not
 run", which is the most expensive lie a design tool can tell. Asserted by
-`validation/design_labels_smoke.mts`.
+a regression test.
 
 **Two questions, asked separately, because they fail separately:**
 
@@ -579,7 +579,7 @@ future edition genuinely diverges, mirror the RC pattern —
 > `rc/codes/<code>/{beam,column}.ts`, code-agnostic geometry in `rc/shared/`,
 > steel clause math in `steel/{rules,compression,flexure,shear,interaction}.ts`
 > — and *every* engineering formula must cite its clause in a comment and, where
-> it anchors a known example, gain a `validation/` assertion.
+> it anchors a known example, gain a regression assertion.
 
 ---
 
@@ -642,6 +642,5 @@ with reasons) and throughout [`DESIGN_RC.md`](DESIGN_RC.md).
 *Cross-references:* reinforced-concrete clause math is in
 [`DESIGN_RC.md`](DESIGN_RC.md); steel clause math is in
 [`DESIGN_STEEL.md`](DESIGN_STEEL.md). Solver sign conventions and the analysis
-pipeline are in [`CLAUDE.md`](../CLAUDE.md) and
-[`docs/ARCHITECTURE.md`](ARCHITECTURE.md); the user-facing walkthrough is in
+pipeline are in [`docs/ARCHITECTURE.md`](ARCHITECTURE.md); the user-facing walkthrough is in
 [`docs/USER_GUIDE.md`](USER_GUIDE.md).

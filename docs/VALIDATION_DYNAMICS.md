@@ -110,8 +110,7 @@ The design spectrum Sa(T) is rewritten in the script (rising branch, plateau,
 
 ## What this suite does not cover
 
-It is closed form only. It does not compare against commercial software, it
-does not check the design checks (see `DESIGN_RC.md` and `DESIGN_STEEL.md`),
+It is closed form only. It does not check the design checks (see `DESIGN_RC.md` and `DESIGN_STEEL.md`),
 and it does not exercise the UI. The static regression guards the solver
 against unintended change but cannot prove the baseline itself correct; the
 static solver was validated separately before this suite existed.

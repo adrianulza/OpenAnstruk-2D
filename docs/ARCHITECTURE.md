@@ -341,7 +341,7 @@ Capture is observational: a `[model]` effect pushes the previous model onto the 
 
 ### Shear Deformation (Timoshenko, v1.0.9)
 
-Opt-in shear flexibility, toggled by **"Enable Shear Deformation"** in the Settings panel (default off). `localStiffness(EA, EI, L, GAs = 0)` computes `Φ = 12·EI/(GAs·L²)` and scales the bending block by `1/(1+Φ)` (rotational diagonal `(4+Φ)EI/(L(1+Φ))`, carry-over `(2−Φ)EI/(L(1+Φ))`); axial terms unchanged. `GAs=0 ⇒ Φ=0`, so the off path is byte-identical to Euler. `analyze(model, { shearDeformation })` resolves per-member `GAs = G·As` where `As = Aκ2·1e-6` and `G = (sec.derived?.G ?? shearModulus(E, ν))·1000`; a missing/≤0 `Aκ2` falls back to Euler for that member. Applies through `condensedTrussElement` too, so trusses honor the toggle. FEF, recovery, and diagrams are untouched. Verified against an independent hand calculation on Example 5 (`validation/shear_deformation_example5.md`).
+Opt-in shear flexibility, toggled by **"Enable Shear Deformation"** in the Settings panel (default off). `localStiffness(EA, EI, L, GAs = 0)` computes `Φ = 12·EI/(GAs·L²)` and scales the bending block by `1/(1+Φ)` (rotational diagonal `(4+Φ)EI/(L(1+Φ))`, carry-over `(2−Φ)EI/(L(1+Φ))`); axial terms unchanged. `GAs=0 ⇒ Φ=0`, so the off path is byte-identical to Euler. `analyze(model, { shearDeformation })` resolves per-member `GAs = G·As` where `As = Aκ2·1e-6` and `G = (sec.derived?.G ?? shearModulus(E, ν))·1000`; a missing/≤0 `Aκ2` falls back to Euler for that member. Applies through `condensedTrussElement` too, so trusses honor the toggle. FEF, recovery, and diagrams are untouched. Verified against an independent hand calculation on Example 5.
 
 ### Analysis Diagnostics & Lazy Solve (v1.0.6)
 

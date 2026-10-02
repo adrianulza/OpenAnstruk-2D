@@ -7,7 +7,7 @@
  *
  * A collapsed group does not render its children at all — deliberate, since the
  * Advanced Report decks are expensive — but it also means a server render emits
- * only the headers. `validation/steel_ui_smoke.mts` renders the design panes
+ * only the headers. a render test renders the design panes
  * with `react-dom/server` and has no DOM to click with, so without this the
  * pane bodies would ship unexercised. Provide `true` to render fully expanded.
  *

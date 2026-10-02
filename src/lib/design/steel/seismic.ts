@@ -25,7 +25,7 @@
  * `@unverified` at its definition.
  *
  * Structure (which branch applies, the `Ca` breakpoint, the floor value, that
- * λhd < λmd) is asserted in `validation/steel_seismic.mts` and is independent of
+ * λhd < λmd) is asserted in a regression test and is independent of
  * the exact numbers. **Before relying on these results for real design, check
  * each `@unverified` constant against Table D1.1 and correct it here.** They are
  * isolated in `D1_1` / `D1_2` below precisely so that is a single-file edit.
@@ -104,7 +104,7 @@ const D1_1 = {
    * so **at least one of the four `high` constants is wrong.** The residual is
    * small and the limit remains conservative-ish either side, but it must be
    * resolved against Table D1.1 before this is trusted. Measured and bounded by
-   * `validation/steel_seismic.mts` §D, which will report if it drifts.
+   * the seismic test, which will report if it drifts.
    */
   web: {
     /** Branch point in Ca. */

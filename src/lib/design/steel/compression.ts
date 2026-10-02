@@ -147,7 +147,7 @@ export interface E4Result {
  * The two conventions meet because `compressionStrength` takes
  * `Fe = min(Fe_flexural, Fe_E4)`: whichever branch runs, the flexural mode is
  * accounted for exactly once. Verified as an invariant (Pn continuity as an
- * offset → 0) in validation/steel_angle_tee_clauses.mts rather than assumed.
+ * offset → 0) in a regression test rather than assumed.
  * Anything that changes which radius of gyration E3 uses must re-check it.
  */
 export function e4Buckling(kind: SteelGeom["kind"], Ag: number, E: number, inp: E4Input): E4Result | undefined {

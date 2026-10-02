@@ -167,7 +167,7 @@ function buildLevels(layout: BarLayout, arr: RebarArrangement): Omit<
 /**
  * Full strain-compatibility capacity report for one bending direction + zone.
  * Numerically identical to `phiMnBars` over the same bar set (validated by
- * `validation/section_report_check.mts`).
+ * a regression test).
  */
 export function buildSectionCapacityReport(
   b: number,

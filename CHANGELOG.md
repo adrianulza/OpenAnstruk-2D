@@ -113,11 +113,11 @@ take ρg against 10.6.1.1's 8 %.
 
 ### Validation
 
-New `design_blended_reports_smoke.mts` (**48**) — the menu shape, then the fields
+New design blended reports test (**48**) — the menu shape, then the fields
 the blend depends on asserted in both modes and shown to differ (551 mm² required
 vs 851 mm² provided on the same zone), columns answering all three reports, the
 leg count including a genuine unbuildable case, the slenderness verdict, the
-required-mode utilisation, and per-item availability. `design_labels_smoke.mts`
+required-mode utilisation, and per-item availability. design labels test
 rewritten where it asserted the old contract, still **121**. **29 suites pass**;
 lint at the recorded 6e/33w baseline.
 
@@ -161,7 +161,7 @@ before the format changes.
 
 ### Validation
 
-New `load_case_reconcile_smoke.mts` (**24**). Section 1 proves the failure mode
+New load case reconcile test (**24**). Section 1 proves the failure mode
 against the real solver *before* asserting anything about the fix — 10.000 kN on
 a known case, 0.000 kN on a missing one, with the analysis still reporting
 success — because a suite that only checked the returned object's shape would
@@ -240,10 +240,10 @@ and saved file still resolves.
 
 ### Validation
 
-New `material_section_group_smoke.mts` (**15**) — the material axis and its fixed
+New material section group test (**15**) — the material axis and its fixed
 order, numeric collation, empty-group suppression, the manual fallback, and both
 renamed defaults including the invariant that member section ids still resolve.
-`design_section_offer_smoke.mts` 25 → **33**, asserting that both design panes
+design section offer test 25 → **33**, asserting that both design panes
 put the label and control on one row and that the trigger fills it, shrinks, and
 no longer carries `w-fit`. **27 suites pass**; lint at the recorded 6e/33w
 baseline.
@@ -302,10 +302,10 @@ furniture coming back.
 
 ### Validation
 
-New `design_section_offer_smoke.mts` (**25**) — the offer rule per material, both
+New design section offer test (**25**) — the offer rule per material, both
 empty states, a stale selection, and a cross-material selection resolving rather
 than leaking. Fixtures list the unassigned section **first**, so a pane that lost
-the filter fails instead of passing by accident. `steel_ui_smoke.mts` 94 → **106**,
+the filter fails instead of passing by accident. steel UI test 94 → **106**,
 covering each moved paragraph as a move. **26 suites pass**; lint at the recorded
 6e/33w baseline.
 
@@ -367,7 +367,7 @@ orientation before a run exists.
 
 ### Validation
 
-New `design_setup_smoke.mts` (**40 assertions**): the default is `auto`; an
+New design setup test (**40 assertions**): the default is `auto`; an
 untouched vertical member designs as a column; every branch of
 `resolveElementType`; the axial gate end-to-end on a cantilever (a thrust at a
 pinned support is carried by the support, not the member — the first version of
@@ -414,7 +414,7 @@ equation governs is genuinely diagnostic. Steel's detailing analogue is AISC 341
 
 The labelling rules lived inside a canvas `useCallback` where nothing could test
 them. They now live in **`lib/design/core/verdict.ts`** as pure functions, and
-`validation/design_labels_smoke.mts` (**108 assertions**) pins them.
+108 regression assertions pin them.
 
 - **Every steel member drew red** — including at D/C 0.04. The colour rule
   branched on `mode === "checked"` first, and steel carries no mode (it has no
@@ -478,7 +478,7 @@ report as overstressed.
 
 ### Validation
 
-`design_labels_smoke.mts` — 123 assertions over a ten-case matrix reaching all
+design labels test — 123 assertions over a ten-case matrix reaching all
 four member statuses: totality, refusal visibility, the steel colour band sweep,
 cause correctness per channel, the strength-vs-detailing split (both alone and
 together), report material scoping, report availability across single-mode,
@@ -551,7 +551,7 @@ No `R`, `Ωo` or `Cd`. Without overstrength load combinations the amplified colu
 
 **No copy of AISC 341-16 or SNI 7860 exists in this repository.** Every numeric limit is transcribed from working knowledge and tagged `@unverified` at its definition, isolated in two constants so correcting them is a single-file edit.
 
-`steel_seismic.mts` (39, new) therefore asserts **structure, not values**: that OMF is inert, that the three classes are distinct, that every `λhd` is strictly below its `λmd` twin, that the web limit is monotonic, continuous and floored in `Ca`, that `Ca` round-trips through its own definition, that tension gives `Ca = 0`, and that SCWB responds both to axial load and to the beam-side expected-strength factor.
+steel seismic test (39, new) therefore asserts **structure, not values**: that OMF is inert, that the three classes are distinct, that every `λhd` is strictly below its `λmd` twin, that the web limit is monotonic, continuous and floored in `Ca`, that `Ca` round-trips through its own definition, that tension gives `Ca = 0`, and that SCWB responds both to axial load and to the beam-side expected-strength factor.
 
 **It found a real defect.** AISC writes the web's two `Ca` branches to meet at the break point. The moderately ductile pair closes to five decimals; the highly ductile pair leaves about 0.3 %, so one of those four constants is mis-transcribed. Recorded at the definition and bounded by the suite rather than tolerated silently.
 
@@ -597,9 +597,9 @@ After the element type went, and `Lb`, `Cb`, `K33`, `K22` with it, `SteelSection
 
 ### Validation
 
-- **`steel_member_role.mts`** (31, new) — classification at and around both 15° boundaries, i↔j swap invariance across 360 sampled angles, translation invariance, the degenerate zero-length case. Its central assertion is that `ratio`, `equation`, `PcComp`, `PcTens`, `Mc33`, `Vc`, `shearRatio`, `Cb`, `Lb`, `slenderness`, `Fcr` and `Fe` are **identical** for one member run as beam, column and brace. If anyone ever branches the engine on role, it fails.
-- **`steel_boundary_sweep.mts`** 86 → **87** — §K rewritten to assert H1.3 cannot return: no axial level may produce an `H1-2` result.
-- **`steel_ui_smoke.mts`** 86 → **94** — asserts the element-type control is *absent*, that a 45° member routes to the brace report, and that no result ever prints `H1-2`.
+- **steel member role test** (31, new) — classification at and around both 15° boundaries, i↔j swap invariance across 360 sampled angles, translation invariance, the degenerate zero-length case. Its central assertion is that `ratio`, `equation`, `PcComp`, `PcTens`, `Mc33`, `Vc`, `shearRatio`, `Cb`, `Lb`, `slenderness`, `Fcr` and `Fe` are **identical** for one member run as beam, column and brace. If anyone ever branches the engine on role, it fails.
+- **steel boundary sweep test** 86 → **87** — §K rewritten to assert H1.3 cannot return: no axial level may produce an `H1-2` result.
+- **steel UI test** 86 → **94** — asserts the element-type control is *absent*, that a 45° member routes to the brace report, and that no result ever prints `H1-2`.
 - Every capacity anchor unchanged: flexure 14/14, column 15/15, angle/tee props 68/68, clauses 80/80, pipeline 58/58, all `rc_*`.
 
 ---
@@ -661,10 +661,10 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 
 ### Validation
 
-- **`steel_angle_tee_props.mts`** (68) — every reference recomputed here by exact polygon contour integration (Green's theorem with 4-point Gauss–Legendre, exact for the degree-≤4 integrands), sharing no code with the engine under test.
-- **`steel_angle_tee_clauses.mts`** (80) — F9/F10/E4/G3/H2 branch and continuity sweep, now including the F9-10 cancellation assertion.
-- **`steel_ui_smoke.mts`** (86, new) — renders the preview, both charts and the tool to static markup with `react-dom/server` across all five shapes plus the degenerate inputs a user can actually produce (a section with no shape, `t ≥ leg`, zero dimensions, no result yet). `npm run build` type-checks the decks but never runs them, so this is what catches a divide-by-zero in a chart scale. It is what found the F9-10 bug.
-- **`run_all.mjs`** (new) — every `.mts`/`.mjs` suite plus build and lint in one command. Lint is gated against a recorded baseline (6 errors, 28 warnings, all pre-existing `react-hooks` issues in `App.tsx` and `structural-canvas.tsx`) so a new problem still fails the suite while the old ones do not mask it.
+- **steel angle tee props test** (68) — every reference recomputed here by exact polygon contour integration (Green's theorem with 4-point Gauss–Legendre, exact for the degree-≤4 integrands), sharing no code with the engine under test.
+- **steel angle tee clauses test** (80) — F9/F10/E4/G3/H2 branch and continuity sweep, now including the F9-10 cancellation assertion.
+- **steel UI test** (86, new) — renders the preview, both charts and the tool to static markup with `react-dom/server` across all five shapes plus the degenerate inputs a user can actually produce (a section with no shape, `t ≥ leg`, zero dimensions, no result yet). `npm run build` type-checks the decks but never runs them, so this is what catches a divide-by-zero in a chart scale. It is what found the F9-10 bug.
+- **A single test runner** (new) — every test suite plus build and lint in one command. Lint is gated against a recorded baseline (6 errors, 28 warnings, all pre-existing `react-hooks` issues in `App.tsx` and `structural-canvas.tsx`) so a new problem still fails the suite while the old ones do not mask it.
 - Pre-existing anchors re-run unchanged: `steel_boundary_sweep` 86/86, `steel_column_verify` 15/15, `steel_flexure_verify` 14/14, `steel_pipeline_smoke` 58/58, and every `rc_*`.
 
 ### Notes
@@ -696,8 +696,8 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 - **Circular preview + report** (`rc/column/{preview,report}.tsx`) — circle outline, single transverse ring (spiral and circular tie draw identically), ring of bars, and a `D` diameter dimension. The P–M chart and checklists are unchanged.
 
 ### Validation
-- **`validation/rc_column_circular.mts`** (new) — cross-checks the closed-form circular-segment concrete block against an **independent strip numerical integration** at three neutral-axis depths (`Mn` matches to <2%), plus `Po`, spiral ρs, `d = 0.8·D` shear depth, and the ≥6-bar rule.
-- Rectangular anchors **byte-stable** after the `ColumnGeom` refactor: `rc_column_verify.mts` (26), `rc_column_phases.mts`, `rc_column_aci_deltas.mts`, `rc_beam_verify.mjs` (25), `rc_beam_aci31825.mts`, `rc_column_scwb.mts` (call sites updated to pass `{ kind:"rect", b, h }`).
+- **Circular-column test** (new) — cross-checks the closed-form circular-segment concrete block against an **independent strip numerical integration** at three neutral-axis depths (`Mn` matches to <2%), plus `Po`, spiral ρs, `d = 0.8·D` shear depth, and the ≥6-bar rule.
+- Rectangular anchors **byte-stable** after the `ColumnGeom` refactor: RC column test (26), RC column phases test, RC column ACI deltas test, RC beam test (25), RC beam ACI 318-25 test, RC column strong-column-weak-beam test (call sites updated to pass `{ kind:"rect", b, h }`).
 
 ---
 
@@ -728,11 +728,11 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 - **`ColumnDesignResult`** gained `shear`, `confinement`, `deltaNs`, `slenderness`, `scwbPass`, `Mn`; `MemberDesignResult` gained `beamMn`; `DesignReport` gained the four `col-*` ids.
 
 ### Validation
-- **`validation/rc_beam_aci31825.mts`** — the three beam code-deltas (λs Vc formula (c), εty vs 0.005, √f'c cap) + frame checks.
-- **`validation/rc_column_phases.mts`** — column shear / confinement / slenderness / spiral consistency + OMF≠IMF≠SMF distinctness.
-- **`validation/rc_column_aci_deltas.mts`** — column ACI↔SNI deltas (λs shear, 3-eq vs 2-eq Ash, εt control point).
-- **`validation/rc_column_scwb.mts`** — strong-column-weak-beam + frame distinctness end-to-end on the portal.
-- Capacity anchors **byte-stable**: `rc_column_verify.mts` (Contoh 5-C, 26 assertions) and `rc_beam_verify.mjs` (25) unchanged.
+- **ACI 318-25 beam test** — the three beam code-deltas (λs Vc formula (c), εty vs 0.005, √f'c cap) + frame checks.
+- **Column phases test** — column shear / confinement / slenderness / spiral consistency + OMF≠IMF≠SMF distinctness.
+- **ACI 318-25 column test** — column ACI↔SNI deltas (λs shear, 3-eq vs 2-eq Ash, εt control point).
+- **Strong-column-weak-beam test** — strong-column-weak-beam + frame distinctness end-to-end on the portal.
+- Capacity anchors **byte-stable**: RC column test (Contoh 5-C, 26 assertions) and RC beam test (25) unchanged.
 
 ### Notes
 - DSM solver and model math untouched — all design work is a pure consumer of analysis results, and design state remains App-state only (not persisted by Save/Load), same boundary as v1.1.
@@ -740,7 +740,6 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 
 ### Documentation
 - `docs/DESIGN_RULES.md`: §5b.5 (column shear/confinement/SCWB/slenderness/spiral), the per-code §9 beam tables (SNI / ACI), §5c edition deltas, and the validation table.
-- `CLAUDE.md`: status bumped to v1.1.2; new per-code differentiation + full-column-design + design-output-UI sections; stale "byte-identical" claims corrected.
 - `CHANGELOG.md`: this entry.
 
 ---
@@ -757,7 +756,7 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 - **Column As-required** — bisects the longitudinal ratio ρg ∈ [1%, 8%] on a representative symmetric ring until the worst (P, M) lands on the curve; reports required ρg + Aₛₜ.
 - **Demands** — `collectPMPairs` (demands.ts) returns the paired (P, M) at each candidate station, since interaction needs the actual axial+moment acting together (not independently enveloped).
 - **Canvas** — column members coloured by radial interaction D/C (`designColorForDC`); a single pill (`D/C · ρ`, or `ρ req` in required mode); new "Interaction D/C" report option.
-- **Validation** — `validation/rc_column_verify.mts` (26 Contoh 5-C anchors: Po = 13050 kN, φPn,max = 6786, B/C/D/E coordinates, demand-inside check, and a cross-check that the column engine ≡ `phiMnBars` at pure bending).
+- **Validation** — a worked-example test (26 Contoh 5-C anchors: Po = 13050 kN, φPn,max = 6786, B/C/D/E coordinates, demand-inside check, and a cross-check that the column engine ≡ `phiMnBars` at pure bending).
 
 ### Changed
 - **`runDesign()`** resolves beam vs column per member and branches to the column interaction path; the beam axial gate now only yields `axial-exceeded` for an explicitly **forced** beam carrying high axial (auto always promotes such members to columns).
@@ -770,7 +769,6 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 
 ### Documentation
 - `docs/DESIGN_RULES.md`: new column section (§5b) + updated extension/limitation notes.
-- `CLAUDE.md`: "RC Column Design (v1.1.1)" subsection.
 
 ---
 
@@ -788,7 +786,7 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 - **Live ACI detailing checks** under the preview (As-checked): longitudinal (`checkArrangement`) — 25.2.1 fit/clear spacing, 24.3.2 crack-control spacing, 20.6.1.3.1 cover ≥ 40, 18.6.3.1 (SMF ≥ 2 bars), 9.7.2.3 skin reinforcement for h > 900; transverse (`checkTransverse`) — max spacing per frame/zone, Av/s ≥ Av,min/s (9.6.3.3), SMF hx ≤ 350 (18.6.4.2), stirrup ≥ D10 (25.7.1), first-hoop ≤ 50 mm advisory.
 - **Run-time spacing fixes** — `governingSpacingMax` unifies the spacing caps: SMF hinge (18.6.4.4), IMF hinge min(d/4, 8db, 24db_hoop, 300) (18.4.2.5), and the general 9.7.6.2.2 cap tightening from min(d/2, 600) to min(d/4, 300) when Vs = Vu/φ − Vc exceeds 0.33√f'c·bw·d.
 - **Canvas** — members recoloured by worst flexural D/C (5-band `designColorForDC`); two rotated pill labels per designed member (flexure +local-2, shear −local-2); a colour legend when results exist; a floating "Run Design" button (Design tab only).
-- **Validation** — `validation/rc_beam_verify.mjs` (25 SMF anchors: As = 2224 mm², Mpr = 552.9 kN·m, Ve = 234.03 kN, Av/s → D10@100) and `validation/strain_compat_check.mts` (16 strain-compat / layering / spacing assertions).
+- **Validation** — a worked-example test (25 SMF anchors: As = 2224 mm², Mpr = 552.9 kN·m, Ve = 234.03 kN, Av/s → D10@100) and a strain-compatibility test (16 strain-compat / layering / spacing assertions).
 - **`docs/DESIGN_RULES.md`** — authoritative design-logic reference, structured so steel members and new section shapes/columns slot in as material/shape strategies.
 
 ### Changed
@@ -802,7 +800,6 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 
 ### Documentation
 - **`docs/DESIGN_RULES.md`**: new — full design logic + clause index + extension guide.
-- `CLAUDE.md`: "Design Tab — RC Beam Design Checks (v1.1.0)" section.
 - `CHANGELOG.md`: this entry.
 
 ---
@@ -872,7 +869,6 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 - For determinate structures, enabling shear changes displacement magnitudes only — reactions and diagrams are unchanged.
 
 ### Documentation
-- `CLAUDE.md`: new "Shear Deformation (v1.0.9)" section; solver "Sign Conventions" / stiffness notes mention the optional `GAs` parameter and the Euler-reduction guarantee.
 - `docs/ARCHITECTURE.md`: matching note on the toggle and the Timoshenko stiffness path.
 - `CHANGELOG.md`: this entry.
 
@@ -906,7 +902,6 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 - The internal ID *is* the identity used by the solver — there is no separate "label vs ID" layer. Resetting the counter on model swaps lets the user-facing IDs restart cleanly without any change to how members reference nodes.
 
 ### Documentation
-- `CLAUDE.md`: "Sign Conventions" section gained an explicit **Global frame** block (+X, +Y, +Z) and a **Local ↔ global mapping** table for horizontal / vertical / diagonal members + a note on the screen-space Y-flip rule.
 - `docs/ARCHITECTURE.md`: matching updates — global frame statement, mapping table, and a one-line mention of the new Show Local Axes setting.
 - `CHANGELOG.md`: this entry.
 
@@ -976,7 +971,6 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 ### Documentation
 - `docs/USER_GUIDE.md`: Self-Weight section updated to mention the γ=0 inline warning; new "Analysis Status" section explaining the three states + dialog + lazy-solve behavior.
 - `docs/ARCHITECTURE.md`: new "Analysis Diagnostics & Lazy Solve" subsection.
-- `CLAUDE.md`: status bumped to v1.0.6 with the new diagnostics module under the solver area.
 
 ---
 
@@ -1031,7 +1025,6 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 ### Documentation
 - `docs/USER_GUIDE.md`: new SELF-WEIGHT section (how to enable, where γ comes from, combo interaction, truss behavior); MEMBER section updated for the new truss semantics.
 - `docs/ARCHITECTURE.md`: new "Truss Element (v1.0.4+)" and "Self-weight load case" sections.
-- `CLAUDE.md`: status bumped to v1.0.4 with a "Selfweight Stitches" architecture entry.
 
 ### Notes
 - Pure axial-only truss elements no longer exist. Existing models load fine — the new condensed element gives identical joint behavior for axial-only load paths.
@@ -1057,7 +1050,7 @@ Also recorded: **`Cb` is taken as 1.0 for single angles.** AISC F10.2 allows `Cb
 - `q1, q2` quadrant-flip blocks in `solver.ts` assembly and recovery — solver math (`localStiffness`, `transformMatrix`, FEF formula, end-force extraction) remains byte-stable.
 
 ### Documentation
-- Rewrote sign-convention sections in `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/visual-spec.md`, and `docs/USER_GUIDE.md` to reflect the single rule.
+- Rewrote sign-convention sections in `docs/ARCHITECTURE.md`, `docs/visual-spec.md`, and `docs/USER_GUIDE.md` to reflect the single rule.
 
 ### Notes
 - Reactions, displacements, and end-force magnitudes are unchanged on all built-in templates.

@@ -6,8 +6,6 @@ import tseslint from 'typescript-eslint'
 import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
-  // src/3d is a separate self-contained project with its own toolchain — linting it
-  // here would push the recorded baseline in validation/run_all.mjs.
   { ignores: ['dist', 'node_modules', 'components/ui/**'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended, prettier],

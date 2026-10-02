@@ -401,7 +401,7 @@ export function buildInteractionCurve(
   ]
   const nominalPolygon = nomInner.map((p) => ({ M: p.Mn, P: p.Pn }))
 
-  // Named book points A–E kept for validation/back-compat (A = cap apex at M=0).
+  // Named book points A–E kept for verification and back-compat (A = cap apex at M=0).
   const A: PMPoint = {
     Pn: -caps.PnMax, Mn: 0, phiPn: -caps.phiPnMax, phiMn: 0,
     phi: crc.phiCompression, epsT: -Infinity, c: Infinity,

@@ -247,7 +247,7 @@ function clauseFor(kind: string, what: "yielding" | "local"): string {
 // ── Mn vs Lb chart ───────────────────────────────────────────────────────────
 
 /**
- * Exported for `validation/steel_ui_smoke.mts`: the deck itself portals into
+ * Exported for the render test: the deck itself portals into
  * `document.body`, which does not exist server-side, so a render test can only
  * reach the chart's scale arithmetic by rendering it directly.
  */

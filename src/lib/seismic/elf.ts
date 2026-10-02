@@ -54,7 +54,7 @@ export interface SeismicCoefficient {
  * well below 0.044·SDS·Ie, and the floor is then the answer.
  *
  * ⚠ The 12.8-5 floor changed between editions. ASCE 7-02 had a flat 0.01; the
- * `0.044·SDS·Ie` form arrived at 7-05 Supplement 2. `validation/suites/smoke_seismic_elf.mts`
+ * `0.044·SDS·Ie` form arrived at 7-05 Supplement 2. a regression test
  * §1 reproduces a 7-02 example, and it only reproduces because the floor does
  * not bind there — do not read that anchor as evidence the floors are identical
  * across editions.

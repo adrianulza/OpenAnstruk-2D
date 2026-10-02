@@ -177,7 +177,7 @@ export function classifyFlexure(
     // so F7-2 lands precisely on My and hands over to F7-3 with no step. Pair
     // it with 1.49 and the bracket reaches 1.319, F7-2 undershoots My, and the
     // F7-2 → F7-3 handover opens a 0.16% upward discontinuity — caught by the
-    // monotonicity check in validation/steel_boundary_sweep.mts. AISC Table
+    // monotonicity check in the boundary sweep test. AISC Table
     // B4.1b case 17, which Chapter F7 actually references, covers "rectangular
     // HSS AND BOXES of uniform thickness" in ONE row at 1.40. The 1.49 row is
     // case 18 (cover/diaphragm plates between lines of welds), which is not the

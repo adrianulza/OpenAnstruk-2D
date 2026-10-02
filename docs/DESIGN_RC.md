@@ -113,7 +113,7 @@ strain-compatibility mechanic as [§5.3](#53-as-checked-mode--per-bar-strain-com
 generalised so the net axial is no longer forced to zero. `column.ts` reuses
 `beta1`, `εcu`, `εt` from the same code's `rules.ts`; the rect beam path is untouched
 (byte-stable anchors). Sign convention matches the solver: **tension +,
-compression −**. Validated against book Contoh 5-C (`validation/rc_column_verify.mts`).
+compression −**. Validated against book Contoh 5-C.
 
 ### 5b.1 Section forces at neutral-axis depth `c` (`sectionForcesAtC`)
 About the **geometric centroid** (h/2), with `a = min(β₁c, h)`:
@@ -219,8 +219,8 @@ zones zero `Vc` regardless (18.6.5.2), so λs is moot there.
 **Practical magnitude.** For Grade-420 stirruped beams the two codes are nearly
 identical (εty+0.003 ≈ 0.0051 ≈ 0.005); the divergence grows with steel grade and
 member depth. The book validation anchors (Contoh 5-A/B/C) bind to the SNI module
-(`rc_beam_verify.mjs`, `rc_column_verify.mts`); the deltas have their own anchors
-in `rc_beam_aci31825.mts`.
+(RC beam test, RC column test); the deltas have their own anchors
+in RC beam ACI 318-25 test.
 
 ---
 
@@ -452,9 +452,8 @@ RC tool from the shortest span using the section); 2h confined region = the
 end-zone model; Ve / Vc / spacing → `strategy.ts::designZoneShear` + the code
 module's `vc` / `governingSpacingMax`.
 
-> **Validation status:** the numeric anchor (`validation/rc_beam_verify.mjs`,
-> bound to SNI) is an **SRPMK/SMF** worked example (Contoh 5-A/5-B); the ACI 318-25
-> ⚑ deltas are anchored in `rc_beam_aci31825.mts`. SRPMB/SRPMM (OMF/IMF) follow the
+> **Validation status:** the numeric anchor (bound to SNI) is an **SRPMK/SMF** worked example (Contoh 5-A/5-B); the ACI 318-25
+> ⚑ deltas are anchored in their own test. SRPMB/SRPMM (OMF/IMF) follow the
 > same code text and share the engine but are not separately anchored to a
 > published example yet.
 
@@ -463,16 +462,16 @@ module's `vc` / `governingSpacingMax`.
 
 ## 11. Validation
 
-| Script | Anchors |
+| Check | Anchors |
 |--------|---------|
-| `validation/rc_beam_verify.mjs` | Book Contoh 5-A/5-B (SMF, 350×600, f'c 30, fy 420): `As = 2224 mm²`, `Mpr = 552.9 kN·m`, `Ve = 234.03 kN`, `Aᵥ/s = 1417 mm²/m → D10@100`; β₁ clamps, As,min, φ-ramp endpoints, analytic zone extremes vs dense sampling (25 assertions). |
-| `validation/strain_compat_check.mts` | Strain-compat ≡ Whitney on the single-layer case; Mpr parity; compression steel; 2-layer bracketing; side-bar capacity gain; auto-overflow geometry (50 mm clear, centroid, corner placement); transverse spacing caps + Vs threshold (16 assertions). Run via `npx tsx --tsconfig config/tsconfig.json …`. |
-| `validation/rc_column_verify.mts` | Book Contoh 5-C (600×600, f'c 30, fy 420, 20D25): `Po = 13050 kN`, `φPn,max = 6786 kN`, balanced/tension-control/pure-moment/pure-tension coordinates (B −2594/856, C −1394/1068, D 0/855, E +3710), demand (−1435, 625) inside the φ curve, polygon cap edge, and column engine ≡ `phiMnBars` at pure bending (26 assertions). **Imports the `sni2847-19` module** (the book is an SMF/318-14 example). Run via tsx. |
-| `validation/rc_beam_aci31825.mts` | ACI 318-25 ↔ SNI deltas: `Vc` formula (a) with min stirrups vs **formula (c)** `0.66·λs·ρw^⅓·√f'c·bw·d` without (and ρw=0 fallback), `epsTC` = εty+0.003 vs fixed 0.005 (fy 420 ≈ book As; fy 550 → ACI φ < SNI φ in transition), `√f'c ≤ 8.3` cap (fc 80, both modules), and frame checks (SMF ρ=2.56% fails 18.6.3.1; ln<4d fails 18.6.2.1). Run via tsx with the **root** tsconfig. |
-| `validation/rc_column_phases.mts` | Column shear/confinement/slenderness/spiral engine (SNI module): `columnFlexuralStrengthAtP(P=0)` ≡ pure-bending Mn, Mpr > Mn, Vc axial benefit, OMF/IMF/SMF confinement check-sets distinct, δns = 1 below the 6.2.5 gate and = `Cm/(1−Pu/0.75Pc)` above, spiral cap 0.85 / φc 0.75 lift. Run via tsx. |
-| `validation/rc_column_aci_deltas.mts` | Column ACI 318-25 ↔ SNI deltas: `columnShearVc` λs (no ties, ratio = λs; equal with ties), confinement **3-eq vs 2-eq** `Ash` (ACI > SNI when the 0.2·kf·kn·Pu term governs; equal at low axial), εt control-point `c` (εty+0.003 vs 0.005 at fy 550; ≈ at fy 420). Run via tsx. |
-| `validation/rc_column_scwb.mts` | Strong-column-weak-beam + frame distinctness end-to-end (`runDesign` on the portal): SMF emits joint checks with ΣMnc/1.2ΣMnb ratios, OMF/IMF emit none; SMF columns carry Ve + confinement, OMF columns design for Vu only. Run via tsx with the **root** tsconfig. |
-| `validation/rc_column_circular.mts` | Circular column engine (SNI module, D 500, f'c 30, 8·D25 spiral): closed-form `concreteBlock` ≡ **independent strip numerical integration** of `Mn` at three neutral-axis depths (<2%), `Po = 0.85f'c(Ag−Ast)+fy·Ast` with `Ag=πD²/4`, spiral `Pn,max = 0.85·Po`, shear `d = 0.8·D`, spiral ρs row (25.7.3.3), and ≥6-bar detailing (10.7.3.1). Run via tsx with the **root** tsconfig. |
+| RC beam, worked example | Book Contoh 5-A/5-B (SMF, 350×600, f'c 30, fy 420): `As = 2224 mm²`, `Mpr = 552.9 kN·m`, `Ve = 234.03 kN`, `Aᵥ/s = 1417 mm²/m → D10@100`; β₁ clamps, As,min, φ-ramp endpoints, analytic zone extremes vs dense sampling (25 assertions). |
+| Strain compatibility | Strain-compat ≡ Whitney on the single-layer case; Mpr parity; compression steel; 2-layer bracketing; side-bar capacity gain; auto-overflow geometry (50 mm clear, centroid, corner placement); transverse spacing caps + Vs threshold (16 assertions). |
+| RC column, worked example | Book Contoh 5-C (600×600, f'c 30, fy 420, 20D25): `Po = 13050 kN`, `φPn,max = 6786 kN`, balanced/tension-control/pure-moment/pure-tension coordinates (B −2594/856, C −1394/1068, D 0/855, E +3710), demand (−1435, 625) inside the φ curve, polygon cap edge, and column engine ≡ `phiMnBars` at pure bending (26 assertions). **Imports the `sni2847-19` module** (the book is an SMF/318-14 example). |
+| ACI 318-25 beam differences | ACI 318-25 ↔ SNI deltas: `Vc` formula (a) with min stirrups vs **formula (c)** `0.66·λs·ρw^⅓·√f'c·bw·d` without (and ρw=0 fallback), `epsTC` = εty+0.003 vs fixed 0.005 (fy 420 ≈ book As; fy 550 → ACI φ < SNI φ in transition), `√f'c ≤ 8.3` cap (fc 80, both modules), and frame checks (SMF ρ=2.56% fails 18.6.3.1; ln<4d fails 18.6.2.1). |
+| Column shear, confinement, slenderness | Column shear/confinement/slenderness/spiral engine (SNI module): `columnFlexuralStrengthAtP(P=0)` ≡ pure-bending Mn, Mpr > Mn, Vc axial benefit, OMF/IMF/SMF confinement check-sets distinct, δns = 1 below the 6.2.5 gate and = `Cm/(1−Pu/0.75Pc)` above, spiral cap 0.85 / φc 0.75 lift. |
+| ACI 318-25 column differences | Column ACI 318-25 ↔ SNI deltas: `columnShearVc` λs (no ties, ratio = λs; equal with ties), confinement **3-eq vs 2-eq** `Ash` (ACI > SNI when the 0.2·kf·kn·Pu term governs; equal at low axial), εt control-point `c` (εty+0.003 vs 0.005 at fy 550; ≈ at fy 420). |
+| Strong column, weak beam | Strong-column-weak-beam + frame distinctness end-to-end (`runDesign` on the portal): SMF emits joint checks with ΣMnc/1.2ΣMnb ratios, OMF/IMF emit none; SMF columns carry Ve + confinement, OMF columns design for Vu only. |
+| Circular columns | Circular column engine (SNI module, D 500, f'c 30, 8·D25 spiral): closed-form `concreteBlock` ≡ **independent strip numerical integration** of `Mn` at three neutral-axis depths (<2%), `Po = 0.85f'c(Ag−Ast)+fy·Ast` with `Ag=πD²/4`, spiral `Pn,max = 0.85·Po`, shear `d = 0.8·D`, spiral ρs row (25.7.3.3), and ≥6-bar detailing (10.7.3.1). |
 
 Required-mode flexure and the SMF shear path are **byte-stable** against the book
 anchors (now bound to the `sni2847-19` module) — changes to the strain-compat /
@@ -511,7 +510,7 @@ rectangular, keyed by `ColumnGeom = { kind:"circle", D }`:
 - **Concrete block** — the compression zone is a **circular segment** of depth
   `a = β₁c`: area `A = R²·acos(m/R) − m·√(R²−m²)`, centroid above the section
   centre `arm = ⅔(R²−m²)^{3/2}/A`, with `R = D/2`, `m = R − a`. `Cc = 0.85f'c·A`.
-  Validated against independent strip integration (`rc_column_circular.mts`).
+  Validated against independent strip integration (RC column circular test).
 - **Geometry** — `Ag = πD²/4`, `Ig = πD⁴/64`, `Ach = π(D/2−cover)²`,
   `leastDim = D`; **shear** uses `bw = D`, `d = 0.8D` (22.5.2.2).
 - **Bars** — a single circumferential ring of `n` bars (`d = R − rs·cosθ`).
@@ -538,6 +537,5 @@ bending — a permanent boundary of the 2D model (one bending axis).
 resolution, demands, orchestration, canvas output) is in
 [`DESIGN_RULES.md`](DESIGN_RULES.md); steel is in
 [`DESIGN_STEEL.md`](DESIGN_STEEL.md). Solver sign conventions and the analysis
-pipeline are in [`CLAUDE.md`](../CLAUDE.md) and
-[`docs/ARCHITECTURE.md`](ARCHITECTURE.md); the user-facing walkthrough is in
+pipeline are in [`docs/ARCHITECTURE.md`](ARCHITECTURE.md); the user-facing walkthrough is in
 [`docs/USER_GUIDE.md`](USER_GUIDE.md).

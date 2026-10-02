@@ -8,7 +8,7 @@
  * lives here, as a pure function of the member result, so that:
  *
  *   - the canvas is a renderer, not a policy layer;
- *   - `validation/design_labels_smoke.mts` can assert every state produces a
+ *   - a regression test can assert every state produces a
  *     visible label — the bug this module was written to kill was members that
  *     silently rendered nothing, which reads as "the design didn't run";
  *   - the schedule and the flyouts can say the same words as the canvas.
