@@ -35,6 +35,7 @@ const EXPECTED_HTML = new Set([
   "index.html",
   "app.html",
   "donation.html",
+  "next.html",
 ])
 
 // ⚠ There is deliberately NO validation.html. A public validation report is

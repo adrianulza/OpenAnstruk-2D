@@ -1,0 +1,2547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>OpenAnstruk · From form to force</title>
+  <meta name="description" content="OpenAnstruk is building the open future of structural analysis. Free, open-source structural analysis that runs in your browser.">
+  <!--
+    ⚠ ALTERNATIVE LANDING PAGE, served at /next. It is deliberately noindex so it
+    does not compete with / while it is being evaluated, and it is absent from
+    public/sitemap.xml for the same reason. Promoting it means: move this file
+    over html/index.html (or point / at it in public/_redirects AND the dev table
+    in config/vite.config.ts), delete the robots meta below, and fix og:url.
+  -->
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#05080d">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://openanstruk.org/next">
+  <meta property="og:site_name" content="OpenAnstruk">
+  <meta property="og:title" content="OpenAnstruk · From form to force">
+  <meta property="og:description" content="The open future of structural analysis. Free, open source, in your browser.">
+  <meta property="og:image" content="https://openanstruk.org/next/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://openanstruk.org/next/og.jpg">
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2305080d'/%3E%3Cg fill='none' stroke='%23e8eef5' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 26 16 6 26 26M11 16h10'/%3E%3C/g%3E%3Ccircle cx='16' cy='6' r='2.6' fill='%2350d4ff'/%3E%3Ccircle cx='6' cy='26' r='2' fill='%23e8eef5'/%3E%3Ccircle cx='26' cy='26' r='2' fill='%23e8eef5'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Martian+Mono:wdth,wght@75..112.5,300..600&display=swap" rel="stylesheet">
+
+  <style>
+    /* Layout: one full-bleed WebGL stage framed by an instrument HUD, then three
+       quiet sections on a 12-column wrap. All boldness lives in the stage. */
+    :root {
+      color-scheme: dark;
+
+      /* Ground and ink. The void keeps a trace of the old blueprint navy. */
+      --void: #05080d;
+      --ink: #0a0f17;
+      --line: rgba(160, 200, 240, 0.13);
+      --line-2: rgba(160, 200, 240, 0.26);
+      --fg: #e8eef5;
+      --fg-2: #97a4b4;
+      --fg-3: #5c6a7c;
+
+      /* Instrument colours. Ice is the HUD; signal marks live state. */
+      --ice: #a6e6ff;
+      --signal: #50d4ff;
+      --pass: #5ff0b6;
+
+      /* Taken from OpenAnstruk 2D itself: diagram signs and load arrows. */
+      --pos: #4c8dff;
+      --neg: #ff4d5e;
+      --load: #0be77e;
+
+      /* The stress spectrum, shared by the shaders, the legend and the type. */
+      --r0: #1d2b6e; --r1: #2456d8; --r2: #1fa9ea; --r3: #36e0c4;
+      --r4: #a8f05e; --r5: #ffd23f; --r6: #ff7a2f; --r7: #e8173f;
+      --ramp: linear-gradient(90deg, var(--r1), var(--r2) 22%, var(--r3) 40%, var(--r4) 56%, var(--r5) 70%, var(--r6) 84%, var(--r7));
+
+      --ff-display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+      --ff-body: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+      --ff-mono: 'Martian Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+      --gutter: clamp(16px, 3vw, 40px);
+      --nav-h: 64px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: var(--void); scroll-behavior: smooth; }
+    body {
+      background: var(--void);
+      color: var(--fg);
+      font-family: var(--ff-body);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    a { color: inherit; }
+    img { max-width: 100%; display: block; }
+    :focus-visible { outline: 1.5px solid var(--ice); outline-offset: 3px; }
+    ::selection { background: rgba(80, 212, 255, 0.3); }
+
+    .skip {
+      position: absolute; left: -9999px; top: 12px; z-index: 100;
+      background: var(--fg); color: var(--void); padding: 8px 14px; text-decoration: none;
+    }
+    .skip:focus { left: 12px; }
+
+    .mono {
+      font-family: var(--ff-mono);
+      font-stretch: 87.5%;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── NAV ─────────────────────────────────────────────────────────── */
+    .nav {
+      position: fixed; inset: 0 0 auto 0; z-index: 40;
+      height: calc(var(--nav-h) + env(safe-area-inset-top, 0px));
+      padding: env(safe-area-inset-top, 0px) var(--gutter) 0;
+      display: flex; align-items: center; gap: 28px;
+      border-bottom: 1px solid transparent;
+      transition: background-color .4s, border-color .4s, backdrop-filter .4s;
+    }
+    .nav.is-solid {
+      background: rgba(5, 8, 13, 0.74);
+      backdrop-filter: blur(14px) saturate(1.2);
+      -webkit-backdrop-filter: blur(14px) saturate(1.2);
+      border-bottom-color: var(--line);
+    }
+    .brand {
+      display: inline-flex; align-items: center; gap: 11px;
+      text-decoration: none; margin-right: auto;
+    }
+    .mark { width: 22px; height: 22px; flex: none; }
+    .wordmark {
+      font-family: var(--ff-display);
+      font-stretch: 125%;
+      font-weight: 500;
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .nav-links { display: flex; gap: 30px; }
+    .nav-links a {
+      font-family: var(--ff-mono); font-stretch: 87.5%;
+      font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--fg-2); text-decoration: none; transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--fg); }
+
+    /* Chamfered corners echo the HUD's cut panels. The solid button is the
+       only filled object on the page; everything else is line work. */
+    .btn {
+      --cut: 9px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+      height: 48px; padding: 0 24px;
+      font-family: var(--ff-display); font-stretch: 112%; font-weight: 500;
+      font-size: 14px; letter-spacing: 0.02em; white-space: nowrap;
+      text-decoration: none;
+      transition: background-color .25s, color .25s, border-color .25s, transform .25s;
+    }
+    .btn-solid {
+      background: var(--fg); color: var(--void);
+      clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+    }
+    .btn-solid:hover { background: #ffffff; transform: translateY(-1px); }
+    .btn .arr { transition: transform .25s; }
+    .btn:hover .arr { transform: translateX(3px); }
+    .btn-ghost { border: 1px solid var(--line-2); color: var(--fg); }
+    .btn-ghost:hover { border-color: var(--ice); }
+    .btn-pending {
+      border: 1px dashed var(--line-2); color: var(--fg-2); cursor: default;
+      font-family: var(--ff-mono); font-stretch: 87.5%; font-weight: 400;
+      font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .btn-pending .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--r5); box-shadow: 0 0 10px var(--r5); }
+    .btn-sm { --cut: 7px; height: 34px; padding: 0 16px; font-size: 12.5px; }
+
+    /* ── HERO STAGE ──────────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      height: 100svh;
+      min-height: 620px;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        radial-gradient(60% 70% at 62% 48%, rgba(40, 70, 110, 0.22), transparent 70%),
+        var(--void);
+      cursor: grab;
+    }
+    .hero.is-dragging { cursor: grabbing; }
+    #scene {
+      position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+      opacity: 0; transition: opacity 1.8s ease;
+    }
+    #scene.is-on { opacity: 1; }
+    .hero::after {
+      content: ''; position: absolute; inset: auto 0 0 0; height: 22%;
+      background: linear-gradient(to bottom, transparent, var(--void));
+      pointer-events: none; z-index: 3;
+    }
+    .hero.no-webgl {
+      background: url('/next/poster.jpg') 62% 50% / cover no-repeat, var(--void);
+      cursor: auto;
+    }
+    .hero.no-webgl .hud, .hero.no-webgl .loader { display: none; }
+
+    .loader {
+      position: absolute; left: 62%; top: 50%; z-index: 2;
+      transform: translate(-50%, -50%);
+      display: grid; justify-items: center; gap: 14px;
+      font-family: var(--ff-mono); font-stretch: 87.5%;
+      font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-3);
+      transition: opacity .8s;
+    }
+    .loader span {
+      width: 160px; height: 1px; background: var(--line); position: relative; overflow: hidden;
+    }
+    .loader span::after {
+      content: ''; position: absolute; inset: 0; width: 40%;
+      background: linear-gradient(90deg, transparent, var(--ice), transparent);
+      animation: sweep 1.4s ease-in-out infinite;
+    }
+    .loader.is-done { opacity: 0; pointer-events: none; }
+    @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+    .hero-copy {
+      position: absolute; z-index: 6;
+      left: var(--gutter);
+      bottom: clamp(36px, 7vh, 72px);
+      width: min(600px, 44vw);
+      cursor: auto;
+    }
+    .eyebrow {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--ff-mono); font-stretch: 87.5%;
+      font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--ice);
+    }
+    .eyebrow::before { content: ''; width: 22px; height: 1px; background: currentColor; opacity: .7; }
+    .hero h1 {
+      font-family: var(--ff-display);
+      font-stretch: 116%;
+      font-weight: 300;
+      font-size: clamp(46px, 5.7vw, 98px);
+      line-height: 0.93;
+      letter-spacing: -0.04em;
+      margin: 20px 0 24px;
+      text-wrap: balance;
+    }
+    .force {
+      background: var(--ramp);
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent;
+      padding-right: 0.06em;
+    }
+    .lede {
+      font-size: clamp(15px, 1.1vw, 17px);
+      line-height: 1.6;
+      color: var(--fg-2);
+      max-width: 44ch;
+    }
+    .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .fineprint {
+      margin-top: 20px;
+      font-family: var(--ff-mono); font-stretch: 87.5%;
+      font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3);
+    }
+
+    @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+    .hero-copy > * { animation: rise .9s cubic-bezier(.2, .7, .2, 1) both; }
+    .hero-copy > :nth-child(2) { animation-delay: .08s; }
+    .hero-copy > :nth-child(3) { animation-delay: .16s; }
+    .hero-copy > :nth-child(4) { animation-delay: .24s; }
+    .hero-copy > :nth-child(5) { animation-delay: .32s; }
+
+    /* ── HUD ─────────────────────────────────────────────────────────── */
+    .hud {
+      position: absolute; inset: 0; z-index: 4; pointer-events: none;
+      font-family: var(--ff-mono); font-stretch: 87.5%;
+      font-size: 9.5px; line-height: 1.6; letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+      color: var(--fg-2);
+    }
+    .hud-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    .hud-svg text { font-family: var(--ff-mono); font-stretch: 87.5%; font-size: 9px; fill: var(--fg-2); }
+
+    /* Every HUD part declares the phases it lives in. One rule per phase keeps
+       the choreography in markup instead of in script. */
+    .hud [data-show] { opacity: 0; transition: opacity .7s ease, transform .7s ease; }
+    .hud[data-phase="arch"]   [data-show~="arch"],
+    .hud[data-phase="boot"]   [data-show~="boot"],
+    .hud[data-phase="scan"]   [data-show~="scan"],
+    .hud[data-phase="solve"]  [data-show~="solve"],
+    .hud[data-phase="static"] [data-show~="static"],
+    .hud[data-phase="modal"]  [data-show~="modal"],
+    .hud[data-phase="verify"] [data-show~="verify"],
+    .hud[data-phase="return"] [data-show~="return"] { opacity: 1; }
+
+    .vf { position: absolute; width: 14px; height: 14px; border-color: var(--line-2); border-style: solid; border-width: 0; }
+    .vf-tl { left: 14px; top: calc(var(--nav-h) + 10px); border-left-width: 1px; border-top-width: 1px; }
+    .vf-tr { right: 14px; top: calc(var(--nav-h) + 10px); border-right-width: 1px; border-top-width: 1px; }
+    .vf-bl { left: 14px; bottom: 14px; border-left-width: 1px; border-bottom-width: 1px; }
+    .vf-br { right: 14px; bottom: 14px; border-right-width: 1px; border-bottom-width: 1px; }
+
+    .hud-col { position: absolute; top: calc(var(--nav-h) + 34px); display: grid; gap: 0; }
+    .hud-left { left: var(--gutter); width: 272px; }
+    .hud-right { right: var(--gutter); width: 212px; }
+    .blk { padding: 11px 0 12px; border-top: 1px solid var(--line); }
+    .blk-h {
+      display: flex; justify-content: space-between; align-items: baseline;
+      color: var(--fg-3); letter-spacing: 0.12em; text-transform: uppercase; font-size: 8.5px;
+      margin-bottom: 7px;
+    }
+    .hud .hi { color: var(--fg); }
+    .blk-h .case { text-transform: none; letter-spacing: 0.04em; font-size: 9px; color: var(--fg-2); }
+    .hud .ice { color: var(--ice); }
+
+    .sys { display: flex; justify-content: space-between; color: var(--fg); letter-spacing: 0.14em; text-transform: uppercase; font-size: 9px; }
+    .sys em { font-style: normal; color: var(--fg-3); }
+    .status { display: flex; align-items: center; gap: 9px; color: var(--ice); letter-spacing: 0.12em; text-transform: uppercase; font-size: 10px; }
+    .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 10px var(--signal); animation: blink 1.1s steps(2, jump-none) infinite; }
+    .hud[data-phase="verify"] .status { color: var(--pass); }
+    .hud[data-phase="verify"] .status i { background: var(--pass); box-shadow: 0 0 10px var(--pass); animation: none; }
+    @keyframes blink { 50% { opacity: .25; } }
+
+    .log { list-style: none; height: calc(7 * 1.6em); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+    .log li { display: grid; grid-template-columns: 38px 70px minmax(0, 1fr); white-space: nowrap; overflow: hidden; opacity: .55; }
+    .log li:last-child { opacity: 1; }
+    .log li:nth-last-child(2) { opacity: .8; }
+    .log .ts { color: var(--fg-3); }
+    .log .k { color: var(--ice); }
+    .log .m {
+      color: var(--fg); overflow: hidden; text-overflow: clip;
+      max-width: calc((var(--n, 30) + 4) * 1ch);
+      animation: type .55s steps(24, end) both;
+    }
+    @keyframes type { from { max-width: 0; } }
+
+    .compute { display: grid; grid-template-columns: 1fr 92px; gap: 14px; align-items: start; }
+    .mat { white-space: pre; line-height: 1.5; color: var(--fg-2); font-size: 8.5px; }
+    .mat b { font-weight: 400; color: var(--fg); }
+    .spark { width: 92px; height: 92px; display: block; }
+    .resid { width: 100%; height: 40px; display: block; margin-top: 8px; }
+
+    .legend { display: grid; grid-template-columns: 10px 1fr; gap: 10px; height: 150px; }
+    .legend-bar { width: 10px; height: 100%; }
+    .legend-ticks { display: flex; flex-direction: column; justify-content: space-between; color: var(--fg); }
+    .legend-ticks span { line-height: 1; }
+    .legend-ticks span:nth-child(even) { color: var(--fg-3); }
+
+    .slice { width: 212px; height: 128px; display: block; }
+    .row { display: flex; justify-content: space-between; gap: 10px; }
+    .row span:first-child { color: var(--fg-3); }
+    .row span:last-child { color: var(--fg); }
+    .swap { position: relative; min-height: 150px; }
+    .swap > div { position: absolute; inset: 0 0 auto 0; }
+    .drift { width: 100%; height: 104px; display: block; margin-top: 4px; }
+    .mode { display: grid; grid-template-columns: 14px 54px 1fr auto; gap: 6px; padding: 3px 0; color: var(--fg-2); transition: color .4s; }
+    .mode.on { color: var(--fg); }
+    .mode.on b { color: var(--ice); }
+    .mode b { font-weight: 400; color: var(--fg-3); }
+    .verdict-n { font-size: 30px; line-height: 1; color: var(--fg); font-stretch: 75%; letter-spacing: -0.02em; }
+    .verdict-bar { height: 3px; background: var(--line); margin: 10px 0 8px; position: relative; }
+    .verdict-bar i { position: absolute; inset: 0 auto 0 0; width: 91%; background: linear-gradient(90deg, var(--r3), var(--r5) 70%, var(--r6)); }
+    .verdict-bar::after { content: ''; position: absolute; right: 0; top: -4px; bottom: -4px; width: 1px; background: var(--fg-2); }
+    .pass { color: var(--pass) !important; }
+
+    .steps-hud {
+      position: absolute; right: var(--gutter); bottom: clamp(28px, 5vh, 52px);
+      width: min(460px, 34vw);
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    }
+    .stp { --p: 0; display: grid; gap: 7px; color: var(--fg-3); letter-spacing: 0.12em; text-transform: uppercase; font-size: 8.5px; transition: color .4s; }
+    .stp::before { content: ''; height: 2px; background: linear-gradient(90deg, var(--ice) calc(var(--p) * 100%), var(--line) 0); }
+    .stp.on { color: var(--fg); }
+    .stp.done { color: var(--fg-2); }
+    .telemetry { position: absolute; right: var(--gutter); bottom: calc(clamp(28px, 5vh, 52px) + 34px); color: var(--fg-3); letter-spacing: 0.08em; font-size: 8.5px; text-transform: uppercase; }
+
+    .tag {
+      position: absolute; left: 0; top: 0;
+      padding: 4px 7px 4px 8px;
+      white-space: nowrap;
+      background: rgba(5, 8, 13, 0.55);
+      border-left: 1px solid var(--ice);
+      color: var(--fg);
+      font-size: 9px; letter-spacing: 0.04em;
+      will-change: transform, opacity;
+      opacity: 0;
+    }
+    .tag small { display: block; color: var(--fg-3); font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; }
+    .tag.det { border-left-color: var(--r5); }
+    .tag.det b { color: var(--r5); font-weight: 400; }
+    .tag.bmd { background: none; border: 0; padding: 0; font-size: 9.5px; }
+    .tag.bmd.pos { color: #8fb6ff; }
+    .tag.bmd.neg { color: #ff8a94; }
+    .tag.load { border-left-color: var(--load); }
+
+    /* ── SECTIONS ────────────────────────────────────────────────────── */
+    .wrap { max-width: 1320px; margin: 0 auto; padding-inline: var(--gutter); }
+    section.band { position: relative; padding-block: clamp(88px, 13vw, 168px); border-top: 1px solid var(--line); }
+    .sec-head { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; align-items: end; margin-bottom: clamp(48px, 6vw, 88px); }
+    .sec-head .eyebrow { grid-column: 1 / span 12; }
+    h2 {
+      font-family: var(--ff-display); font-stretch: 116%; font-weight: 300;
+      font-size: clamp(36px, 4.4vw, 68px); line-height: 0.98; letter-spacing: -0.035em;
+      text-wrap: balance;
+    }
+    .sec-head h2 { grid-column: 1 / span 7; }
+    .sec-head p { grid-column: 9 / span 4; color: var(--fg-2); max-width: 40ch; }
+
+    .flow { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 48px; border-top: 1px solid var(--line); }
+    .flow li { position: relative; padding: 26px 0 30px; display: grid; gap: 18px; align-content: start; min-width: 0; }
+    .flow li + li::before { content: ''; position: absolute; left: -24px; top: 0; bottom: 0; width: 1px; background: var(--line); }
+    .flow figure { aspect-ratio: 8 / 5; max-width: 100%; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(160, 200, 240, 0.03), transparent); position: relative; }
+    .flow figure svg { width: 100%; height: 100%; display: block; }
+    .flow-meta { display: flex; align-items: baseline; gap: 14px; }
+    .flow-no { font-family: var(--ff-mono); font-stretch: 87.5%; font-size: 10px; color: var(--fg-3); letter-spacing: 0.1em; }
+    .flow h3 { font-family: var(--ff-display); font-stretch: 116%; font-weight: 400; font-size: 21px; letter-spacing: -0.01em; }
+    .flow p { color: var(--fg-2); font-size: 15px; line-height: 1.55; max-width: 32ch; }
+
+    .product-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 24px; align-items: center; }
+    .shot { grid-column: 1 / span 7; margin: 0; min-width: 0; }
+    .shot-frame {
+      position: relative; padding: 10px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(160, 200, 240, 0.04), rgba(160, 200, 240, 0.01));
+      box-shadow: 0 40px 120px -40px rgba(80, 160, 230, 0.28);
+    }
+    .shot-frame::before, .shot-frame::after {
+      content: ''; position: absolute; width: 16px; height: 16px; border: 0 solid var(--ice);
+    }
+    .shot-frame::before { left: -1px; top: -1px; border-left-width: 1px; border-top-width: 1px; }
+    .shot-frame::after { right: -1px; bottom: -1px; border-right-width: 1px; border-bottom-width: 1px; }
+    .shot img { width: 100%; height: auto; aspect-ratio: 2400 / 1528; object-fit: cover; }
+    .shot figcaption { margin-top: 12px; font-family: var(--ff-mono); font-stretch: 87.5%; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); }
+    .product-copy { grid-column: 9 / span 4; display: grid; gap: 22px; align-content: center; min-width: 0; }
+    .product-copy .lede { max-width: 38ch; }
+    .specs { display: grid; border-top: 1px solid var(--line); }
+    .specs div { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+    .specs dt { font-family: var(--ff-mono); font-stretch: 87.5%; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); padding-top: 3px; }
+    .specs dd { color: var(--fg); }
+
+    .soon {
+      margin-top: clamp(56px, 7vw, 96px);
+      display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px;
+      padding: 20px 24px; border: 1px dashed var(--line-2);
+    }
+    .soon strong { font-family: var(--ff-display); font-stretch: 116%; font-weight: 400; font-size: 20px; letter-spacing: -0.01em; }
+    .soon span { color: var(--fg-2); }
+    .chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--ff-mono); font-stretch: 87.5%; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--r5); padding: 5px 10px; border: 1px solid rgba(255, 210, 63, 0.35);
+    }
+    .chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .creed { list-style: none; border-top: 1px solid var(--line); }
+    .creed li {
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 24px; align-items: baseline;
+      padding: clamp(18px, 2.4vw, 30px) 0; border-bottom: 1px solid var(--line);
+    }
+    .creed-word {
+      font-family: var(--ff-display); font-stretch: 125%; font-weight: 200;
+      font-size: clamp(40px, 6.9vw, 116px); line-height: 0.95; letter-spacing: -0.05em;
+      transition: color .5s;
+    }
+    .creed li:hover .creed-word { color: var(--ice); }
+    .creed-note { color: var(--fg-2); font-size: 15px; max-width: 34ch; }
+    .creed-note b { display: block; font-family: var(--ff-mono); font-stretch: 87.5%; font-weight: 400; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); margin-bottom: 6px; }
+    .open-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; margin-top: clamp(40px, 5vw, 64px); }
+    .mail { font-family: var(--ff-mono); font-stretch: 87.5%; font-size: 12px; color: var(--fg-2); margin-left: 8px; }
+    .mail a { text-decoration: none; border-bottom: 1px solid var(--line-2); }
+    .mail a:hover { color: var(--fg); border-color: var(--ice); }
+
+    .foot { border-top: 1px solid var(--line); padding-block: 40px calc(40px + env(safe-area-inset-bottom, 0px)); }
+    .foot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 32px; }
+    .foot p { font-family: var(--ff-mono); font-stretch: 87.5%; font-size: 10px; letter-spacing: 0.08em; color: var(--fg-3); }
+    .foot nav { display: flex; flex-wrap: wrap; gap: 22px; margin-left: auto; }
+    .foot nav a { font-family: var(--ff-mono); font-stretch: 87.5%; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-2); text-decoration: none; }
+    .foot nav a:hover { color: var(--fg); }
+
+    /* Step figures: line work in the same instrument language as the HUD. */
+    .fig-line { fill: none; stroke: var(--fg-3); stroke-width: 1; vector-effect: non-scaling-stroke; }
+    .fig-ice { fill: none; stroke: var(--ice); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+    .fig-dots { fill: none; stroke: var(--ice); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 0.01 4.2; vector-effect: non-scaling-stroke; }
+    .fig-text { font-family: var(--ff-mono); font-stretch: 87.5%; font-size: 8px; fill: var(--fg-3); letter-spacing: 0.06em; }
+    .fig-scan { stroke: var(--ice); stroke-width: 1; filter: drop-shadow(0 0 4px var(--signal)); animation: figscan 4.5s ease-in-out infinite; }
+    @keyframes figscan { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-74px); } }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────────────── */
+    @media (max-height: 940px) { .compute-blk { display: none !important; } }
+    @media (max-height: 820px) { .log-blk { display: none !important; } }
+    @media (max-height: 760px) { .slice-blk { display: none !important; } .hud-right .swap { min-height: 120px; } }
+    @media (max-width: 1180px) {
+      .hud-right { width: 184px; }
+      .slice { width: 184px; height: 112px; }
+      .hud-left { width: 240px; }
+      .compute-blk { display: none !important; }
+    }
+    @media (max-width: 980px) {
+      .nav-links { display: none; }
+      .hero-copy { width: min(560px, calc(100% - 2 * var(--gutter))); }
+      .hud-right, .hud-left .log-blk, .steps-hud, .telemetry, .hud-svg, #hudTags { display: none; }
+      .hud-left { width: auto; right: var(--gutter); top: calc(var(--nav-h) + 8px); }
+      .hud-left .blk { border-top: 0; padding-top: 0; }
+      .loader { left: 50%; top: 40%; }
+      .sec-head h2, .sec-head p { grid-column: 1 / span 12; }
+      .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .flow li:nth-child(3)::before { display: none; }
+      .flow li:nth-child(n + 3) { border-top: 1px solid var(--line); }
+      .shot, .product-copy { grid-column: 1 / span 12; }
+      .hero.no-webgl { background-position: 50% 30%; }
+    }
+    @media (max-width: 640px) {
+      .hero { min-height: 560px; }
+      .hero-copy { bottom: 28px; }
+      .hero h1 { font-size: clamp(40px, 12.4vw, 60px); margin: 14px 0 16px; }
+      .lede { font-size: 14.5px; }
+      .cta { margin-top: 22px; }
+      .btn { height: 44px; padding: 0 18px; font-size: 13px; }
+      .nav .btn-sm { display: none; }
+      .hud-left .sys { display: none; }
+      .flow { grid-template-columns: minmax(0, 1fr); }
+      .flow li { padding: 24px 0 28px; }
+      .flow li + li::before { display: none; }
+      .flow li + li { border-top: 1px solid var(--line); }
+      .creed li { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+      .foot nav { margin-left: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .hero-copy > *, .log .m, .fig-scan, .loader span::after, .status i { animation: none !important; }
+      #scene { transition: none; }
+    }
+  </style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="nav">
+  <a class="brand" href="/next" aria-label="OpenAnstruk home">
+    <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+      <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3.5 20.5 12 3.5l8.5 17M7.75 12h8.5"/>
+      </g>
+      <circle cx="12" cy="3.5" r="2.2" fill="#50d4ff"/>
+      <circle cx="3.5" cy="20.5" r="1.6" fill="currentColor"/>
+      <circle cx="20.5" cy="20.5" r="1.6" fill="currentColor"/>
+      <circle cx="7.75" cy="12" r="1.2" fill="currentColor"/>
+      <circle cx="16.25" cy="12" r="1.2" fill="currentColor"/>
+    </svg>
+    <span class="wordmark">OpenAnstruk</span>
+  </a>
+  <nav class="nav-links" aria-label="Primary">
+    <a href="#engine">Engine</a>
+    <a href="#software">2D app</a>
+    <a href="#open">Open source</a>
+    <a href="/donation">Support</a>
+    <a href="https://github.com/adrianulza/OpenAnstruk-2D" target="_blank" rel="noopener">GitHub ↗</a>
+  </nav>
+  <a class="btn btn-solid btn-sm" href="/app">Launch 2D</a>
+</header>
+
+<main id="main">
+
+<!-- ── HERO: the building, then its analysis ─────────────────────────── -->
+<section class="hero" id="hero" aria-label="A free-form tower, scanned and analysed">
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div class="loader" id="loader" aria-hidden="true"><span></span>Initialising engine</div>
+
+  <div class="hud" id="hud" data-phase="arch" aria-hidden="true">
+    <svg class="hud-svg" id="hudSvg">
+      <g id="hudBracket" data-show="boot scan solve static modal verify">
+        <path class="br" fill="none" stroke="#a6e6ff" stroke-opacity=".7" stroke-width="1"/>
+        <path class="br" fill="none" stroke="#a6e6ff" stroke-opacity=".7" stroke-width="1"/>
+        <path class="br" fill="none" stroke="#a6e6ff" stroke-opacity=".7" stroke-width="1"/>
+        <path class="br" fill="none" stroke="#a6e6ff" stroke-opacity=".7" stroke-width="1"/>
+        <text id="brTitle" fill="#e8eef5">STUDY MODEL · FREE-FORM TOWER</text>
+        <text id="brSub">72 LEVELS · 300.0 m · DIAGRID + CORE</text>
+      </g>
+      <g id="hudScale" data-show="scan solve static modal verify"></g>
+      <g id="hudLeaders"></g>
+    </svg>
+    <div id="hudTags"></div>
+
+    <span class="vf vf-tl"></span><span class="vf vf-tr"></span><span class="vf vf-bl"></span><span class="vf vf-br"></span>
+
+    <div class="hud-col hud-left" data-show="boot scan solve static modal verify return">
+      <div class="blk">
+        <div class="sys"><span>Analysis engine</span><em>preview</em></div>
+      </div>
+      <div class="blk">
+        <div class="status"><i></i><span id="hudStatus">Reading geometry</span></div>
+      </div>
+      <div class="blk log-blk">
+        <div class="blk-h"><span>Process</span><span id="hudClock">00:00.00</span></div>
+        <ul class="log" id="hudLog"></ul>
+      </div>
+      <div class="blk compute-blk" data-show="scan solve static modal verify">
+        <div class="blk-h"><span>Stiffness · K u = F</span><span id="hudDof">1,092,612 dof</span></div>
+        <div class="compute">
+          <div>
+            <div class="mat" id="hudMat"></div>
+            <canvas class="resid" id="hudResid"></canvas>
+          </div>
+          <canvas class="spark" id="hudSpark"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-col hud-right">
+      <div class="blk" data-show="scan solve static modal verify">
+        <div class="blk-h"><span id="lgTitle" class="case">σ eq · MPa</span><span id="lgCase">EQ-X</span></div>
+        <div class="legend">
+          <canvas class="legend-bar" id="lgBar" width="10" height="150"></canvas>
+          <div class="legend-ticks" id="lgTicks"><span>52.0</span><span>39.0</span><span>26.0</span><span>13.0</span><span>0.0</span></div>
+        </div>
+      </div>
+      <div class="blk slice-blk" data-show="scan solve static">
+        <div class="blk-h"><span id="slLabel">Section · L00</span><span id="slE">e 0.0 m</span></div>
+        <canvas class="slice" id="hudSlice"></canvas>
+      </div>
+      <div class="blk swap">
+        <div data-show="static">
+          <div class="blk-h"><span>Storey drift</span><span id="drMax">1/486</span></div>
+          <svg class="drift" id="hudDrift" viewBox="0 0 212 104" preserveAspectRatio="none"></svg>
+          <div class="row"><span>Base shear</span><span id="rdV">38,412 kN</span></div>
+          <div class="row"><span>Roof Δ</span><span id="rdD">612 mm</span></div>
+        </div>
+        <div data-show="modal">
+          <div class="blk-h"><span>Modal · Lanczos</span><span>24 modes</span></div>
+          <div class="mode" id="md1"><b>1</b><span>6.21 s</span><span>sway X</span><span>62.4%</span></div>
+          <div class="mode" id="md2"><b>2</b><span>5.74 s</span><span>sway Z</span><span>59.8%</span></div>
+          <div class="mode" id="md3"><b>3</b><span>3.04 s</span><span>torsion</span><span>71.2%</span></div>
+          <div class="row" style="margin-top:10px"><span>Σ mass</span><span>92.4%</span></div>
+          <div class="row"><span>Shape scale</span><span>×20</span></div>
+        </div>
+        <div data-show="verify">
+          <div class="blk-h"><span>Verdict</span><span class="pass">Pass</span></div>
+          <div class="verdict-n">0.91</div>
+          <div class="verdict-bar"><i></i></div>
+          <div class="row"><span>Max D/C</span><span>D-0417 · L33</span></div>
+          <div class="row"><span>Members</span><span>2,847 checked</span></div>
+          <div class="row"><span>Codes</span><span>SNI · ACI · AISC</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="telemetry" id="hudTele" data-show="boot scan solve static modal verify return">AZ 000.0° · EL 00.0°</div>
+    <div class="steps-hud" data-show="boot scan solve static modal verify return">
+      <div class="stp" id="st0">01 Read</div>
+      <div class="stp" id="st1">02 Solve</div>
+      <div class="stp" id="st2">03 Reveal</div>
+      <div class="stp" id="st3">04 Verify</div>
+    </div>
+  </div>
+
+  <div class="hero-copy">
+    <p class="eyebrow">Autonomous structural analysis</p>
+    <h1>From form<br>to <span class="force">force.</span></h1>
+    <p class="lede">We're building the open future of structural analysis, where any structure is read, solved and verified by AI.</p>
+    <div class="cta">
+      <a class="btn btn-solid" href="/app">Launch 2D <span class="arr" aria-hidden="true">→</span></a>
+      <span class="btn btn-pending"><span class="dot" aria-hidden="true"></span>3D in development</span>
+    </div>
+    <p class="fineprint">Free · Open source · Runs in your browser</p>
+  </div>
+</section>
+
+<!-- ── ENGINE ────────────────────────────────────────────────────────── -->
+<section class="band" id="engine">
+  <div class="wrap">
+    <header class="sec-head">
+      <p class="eyebrow">The engine</p>
+      <h2>One model in.<br>Every force out.</h2>
+      <p>The sequence you just watched is the one every analysis follows. We are automating each step, in the open.</p>
+    </header>
+    <ol class="flow">
+      <li>
+        <figure aria-hidden="true">
+          <svg viewBox="0 0 240 150" preserveAspectRatio="xMidYMid meet">
+            <path class="fig-dots" d="M98 132 C92 104 104 84 100 62 C97 44 104 30 112 18"/>
+            <path class="fig-ice" d="M150 132 C156 104 144 86 146 62 C148 42 140 28 128 18"/>
+            <path class="fig-dots" d="M112 18 C116 14 124 14 128 18"/>
+            <path class="fig-line" d="M60 132 H180"/>
+            <path class="fig-line" d="M98 112 H150 M100 92 H146 M101 72 H146 M102 52 H145 M106 34 H138" stroke-dasharray="2 3"/>
+            <line class="fig-scan" x1="70" y1="104" x2="170" y2="104"/>
+            <text class="fig-text" x="16" y="22">POINTS 2.41 M</text>
+            <text class="fig-text" x="16" y="34">LEVELS 72</text>
+          </svg>
+        </figure>
+        <div class="flow-meta"><span class="flow-no">01</span><h3>Read</h3></div>
+        <p>Geometry, materials and loads, recognised from the model.</p>
+      </li>
+      <li>
+        <figure aria-hidden="true">
+          <svg viewBox="0 0 240 150" preserveAspectRatio="xMidYMid meet" id="figK">
+            <text class="fig-text" x="16" y="22">K · SPARSE · SPD</text>
+            <text class="fig-text" x="16" y="138">K u = F</text>
+          </svg>
+        </figure>
+        <div class="flow-meta"><span class="flow-no">02</span><h3>Solve</h3></div>
+        <p>Stiffness assembled and solved, right in the browser.</p>
+      </li>
+      <li>
+        <figure aria-hidden="true">
+          <svg viewBox="0 0 240 150" preserveAspectRatio="xMidYMid meet">
+            <path d="M70 56 Q120 104 170 56 Z" fill="#4c8dff" fill-opacity=".28" stroke="#4c8dff" stroke-width="1"/>
+            <path d="M70 56 L70 36 L86 56 Z M170 56 L170 36 L154 56 Z" fill="#ff4d5e" fill-opacity=".3" stroke="#ff4d5e" stroke-width="1"/>
+            <path d="M70 56 L52 56 L70 120 Z M170 56 L188 56 L170 120 Z" fill="#ff4d5e" fill-opacity=".22" stroke="#ff4d5e" stroke-width="1"/>
+            <path d="M70 120 L82 120 L70 56 Z M170 120 L158 120 L170 56 Z" fill="#4c8dff" fill-opacity=".22" stroke="#4c8dff" stroke-width="1"/>
+            <path class="fig-ice" d="M70 120 V56 H170 V120"/>
+            <path class="fig-line" d="M62 124 H78 M162 124 H178"/>
+            <text class="fig-text" x="104" y="96">+33.4</text>
+            <text class="fig-text" x="40" y="32">−21.5 kN·m</text>
+          </svg>
+        </figure>
+        <div class="flow-meta"><span class="flow-no">03</span><h3>Reveal</h3></div>
+        <p>Axial, shear, moment and deflection, drawn on every member.</p>
+      </li>
+      <li>
+        <figure aria-hidden="true">
+          <svg viewBox="0 0 240 150" preserveAspectRatio="xMidYMid meet">
+            <g id="figDC"></g>
+            <path d="M196 20 V128" stroke="#e8eef5" stroke-opacity=".5" stroke-dasharray="3 3"/>
+            <text class="fig-text" x="186" y="140">1.00</text>
+            <text class="fig-text" x="16" y="140">D/C</text>
+          </svg>
+        </figure>
+        <div class="flow-meta"><span class="flow-no">04</span><h3>Verify</h3></div>
+        <p>Members checked against ACI 318, AISC 360 and SNI.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ── PRODUCT ───────────────────────────────────────────────────────── -->
+<section class="band" id="software">
+  <div class="wrap product-grid">
+    <figure class="shot">
+      <div class="shot-frame">
+        <img src="/demo/7.png" width="2400" height="1528" loading="lazy" decoding="async"
+             alt="OpenAnstruk 2D showing the bending moment diagram of a two-storey, two-bay frame">
+      </div>
+      <figcaption>Bending moment · two-storey frame · OpenAnstruk 2D</figcaption>
+    </figure>
+    <div class="product-copy">
+      <p class="eyebrow">Available now</p>
+      <h2>OpenAnstruk 2D</h2>
+      <p class="lede">Frames and trusses, modelled, solved and designed in your browser. No account, no installation, no licence fee.</p>
+      <dl class="specs">
+        <div><dt>Solver</dt><dd>Direct stiffness method</dd></div>
+        <div><dt>Results</dt><dd>Axial, shear, moment, deflection</dd></div>
+        <div><dt>Concrete</dt><dd>ACI 318-25 · SNI 2847:2019</dd></div>
+        <div><dt>Steel</dt><dd>AISC 360-16 · SNI 1729:2020</dd></div>
+        <div><dt>Runs</dt><dd>In the browser, offline after first load</dd></div>
+        <div><dt>Licence</dt><dd>MIT</dd></div>
+      </dl>
+      <div class="cta" style="margin-top:6px">
+        <a class="btn btn-solid" href="/app">Launch 2D <span class="arr" aria-hidden="true">→</span></a>
+        <a class="btn btn-ghost" href="https://www.youtube.com/watch?v=eHlsxe8HhqM" target="_blank" rel="noopener">Watch the demo ↗</a>
+      </div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="soon">
+      <span class="chip">In development</span>
+      <strong>OpenAnstruk 3D</strong>
+      <span>Space frames, in three dimensions.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── OPEN ──────────────────────────────────────────────────────────── -->
+<section class="band" id="open">
+  <div class="wrap">
+    <header class="sec-head">
+      <p class="eyebrow">Open source</p>
+    </header>
+    <ul class="creed">
+      <li><span class="creed-word">Open tool.</span><span class="creed-note"><b>MIT licence</b>OpenAnstruk 2D is open source. Read the solver, check it, change it, share it.</span></li>
+      <li><span class="creed-word">Open knowledge.</span><span class="creed-note"><b>No black box</b>Textbook mechanics and published design codes. Nothing hidden.</span></li>
+      <li><span class="creed-word">Open access.</span><span class="creed-note"><b>Free</b>No account, no licence key, no installation. For every student, teacher and engineer.</span></li>
+    </ul>
+    <div class="open-actions">
+      <a class="btn btn-solid" href="https://github.com/adrianulza/OpenAnstruk-2D" target="_blank" rel="noopener">Contribute on GitHub <span class="arr" aria-hidden="true">↗</span></a>
+      <a class="btn btn-ghost" href="/donation">Support the project</a>
+      <span class="mail">or write to <a href="mailto:team@openanstruk.org">team@openanstruk.org</a></span>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-row">
+    <a class="brand" href="/next" aria-label="OpenAnstruk home" style="margin-right:0">
+      <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 20.5 12 3.5l8.5 17M7.75 12h8.5"/></g>
+        <circle cx="12" cy="3.5" r="2.2" fill="#50d4ff"/>
+      </svg>
+      <span class="wordmark">OpenAnstruk</span>
+    </a>
+    <p>© 2026 OpenAnstruk · 2D released under the MIT licence</p>
+    <nav aria-label="Footer">
+      <a href="/app">Launch 2D</a>
+      <a href="/donation">Support</a>
+      <a href="https://github.com/adrianulza/OpenAnstruk-2D" target="_blank" rel="noopener">GitHub</a>
+      <a href="mailto:team@openanstruk.org">Email</a>
+    </nav>
+  </div>
+</footer>
+
+<!--
+  three.js comes from the CDN through an import map and a dynamic import() in a
+  CLASSIC script. That is deliberate: Vite bundles inline type="module" scripts
+  into dist/assets, and config/check-dist.mjs fails the build if three.js ever
+  appears there (that guard keeps the private 3D app out of this repo). A classic
+  inline script is left untouched by Vite, exactly like the hero on html/index.html.
+-->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ════════════════════════════════════════════════════════════════════
+     0. PAGE CHROME (no WebGL needed)
+     ════════════════════════════════════════════════════════════════════ */
+  const $ = (id) => document.getElementById(id);
+  const nav = $('nav');
+  const onScroll = () => nav.classList.toggle('is-solid', window.scrollY > 24);
+  onScroll();
+  addEventListener('scroll', onScroll, { passive: true });
+
+  // The colour ramp, as data. The legend, the step figures and every shader
+  // read this one list, so the HUD and the 3D scene can never disagree.
+  const RAMP = ['#1d2b6e', '#2456d8', '#1fa9ea', '#36e0c4', '#a8f05e', '#ffd23f', '#ff7a2f', '#e8173f'];
+  const BANDS = 12;
+  const hexRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const RAMP_RGB = RAMP.map(hexRgb);
+  function rampCss(x, alpha = 1) {
+    const f = Math.min(0.9999, Math.max(0, x)) * (RAMP.length - 1);
+    const i = Math.floor(f), t = f - i, a = RAMP_RGB[i], b = RAMP_RGB[i + 1];
+    return `rgba(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)},${alpha})`;
+  }
+  const bandCss = (x, alpha) => rampCss((Math.floor(Math.min(0.9999, Math.max(0, x)) * BANDS) + 0.5) / BANDS, alpha);
+
+  // Step figure 02: a sparse, symmetric, banded stiffness pattern.
+  (function figK() {
+    const svg = $('figK'); if (!svg) return;
+    const n = 18, size = 5.2, x0 = 120 - (n * size) / 2, y0 = 75 - (n * size) / 2;
+    let out = '';
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const d = Math.abs(i - j);
+      const block = (i >= 11 && i <= 13 && j >= 2 && j <= 4) || (j >= 11 && j <= 13 && i >= 2 && i <= 4);
+      if (d > 3 && !block) continue;
+      const fill = d === 0 ? '#a6e6ff' : block ? '#ffd23f' : 'rgba(166,230,255,' + (0.5 - d * 0.1) + ')';
+      out += `<rect x="${(x0 + j * size).toFixed(1)}" y="${(y0 + i * size).toFixed(1)}" width="${size - 1.4}" height="${size - 1.4}" fill="${fill}"/>`;
+    }
+    svg.insertAdjacentHTML('beforeend', out);
+  })();
+
+  // Step figure 04: demand-to-capacity bars, coloured on the same ramp.
+  (function figDC() {
+    const g = $('figDC'); if (!g) return;
+    const vals = [0.42, 0.67, 0.91, 0.58, 0.77];
+    g.innerHTML = vals.map((v, i) => {
+      const y = 26 + i * 20, w = 150 * v;
+      return `<rect x="46" y="${y}" width="150" height="6" fill="rgba(160,200,240,.08)"/>` +
+             `<rect x="46" y="${y}" width="${w.toFixed(1)}" height="6" fill="${rampCss(v)}"/>` +
+             `<text class="fig-text" x="16" y="${y + 6}">${v.toFixed(2)}</text>`;
+    }).join('');
+  })();
+
+  /* ════════════════════════════════════════════════════════════════════
+     1. THE BUILDING, AS MATHEMATICS
+     Everything below is a closed-form description of one free-form tower.
+     Geometry, structure, stresses and the HUD all sample these functions,
+     so a column, its stress colour and its label always agree.
+     ════════════════════════════════════════════════════════════════════ */
+  const TAU = Math.PI * 2;
+  const H = 30;               // tower height in scene units (1 unit = 10 m, so 300 m)
+  const FLOORS = 72;
+  const FH = H / FLOORS;      // 4.17 m storey height
+  const V_TOP = 0.955;        // where the glazed shaft hands over to the crown dome
+  const MECH = [24, 48];      // two-storey outrigger levels (24–26, 48–50)
+  const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+  const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const easeIO = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const env = (t, a, b, c, d) => smooth(a, b, t) * (1 - smooth(c, d, t)); // trapezoid envelope
+
+  // Spine of the tower: the base kicks back, the crown cantilevers forward.
+  function center(v) {
+    const lean = smooth(0.32, 1.0, v);
+    return [-0.7 * (1 - smooth(0, 0.55, v)) + 3.3 * lean * lean,
+            0.8 * Math.sin(Math.PI * 0.9 * v) - 0.7 * lean];
+  }
+  // The plan rotates about 70° from plaza to crown.
+  const twist = (v) => 1.1 * v + 0.16 * Math.sin(TAU * v);
+  // Plan scale along the height: a flared foot, a pinched waist, a swelling crown, then a dome.
+  function girth(v) {
+    let g = 1 + 0.42 * Math.exp(-v / 0.045)
+              - 0.25 * Math.exp(-(((v - 0.54) / 0.19) ** 2))
+              + 0.10 * Math.exp(-(((v - 0.87) / 0.08) ** 2));
+    if (v > V_TOP) g *= Math.sqrt(Math.max(1e-4, 1 - ((v - V_TOP) / (1 - V_TOP)) ** 2));
+    return g;
+  }
+  // The plan: an ellipse pushed into a teardrop, with a slow third harmonic drifting up the height.
+  function lens(phi, v) {
+    const a = 4.1, b = 2.8, c = Math.cos(phi), s = Math.sin(phi);
+    return ((a * b) / Math.hypot(b * c, a * s)) * (1 + 0.17 * c) * (1 + 0.06 * Math.cos(3 * phi + 2.4 * v) * (0.5 + v));
+  }
+  const radius = (theta, v) => lens(theta - twist(v), v) * girth(v);
+  function facadePt(theta, v, out) {
+    const c = center(v), r = radius(theta, v);
+    out[0] = c[0] + r * Math.cos(theta); out[1] = v * H; out[2] = c[1] + r * Math.sin(theta);
+    return out;
+  }
+
+  // Core: a rounded-rectangle RC tube that follows 60 % of the spine's lean.
+  const CORE = { a: 1.45, b: 1.0, rot: twist(0.45), top: 0.94 };
+  const coreBase = (() => { let x = 0, z = 0; for (let i = 0; i <= 40; i++) { const c = center((i / 40) * CORE.top); x += c[0]; z += c[1]; } return [x / 41, z / 41]; })();
+  function coreCenter(v) { const c = center(v); return [lerp(coreBase[0], c[0], 0.6), lerp(coreBase[1], c[1], 0.6)]; }
+  function coreRadius(psi) {
+    const p = psi - CORE.rot, c = Math.abs(Math.cos(p)), s = Math.abs(Math.sin(p));
+    return Math.pow(Math.pow(c / CORE.a, 4) + Math.pow(s / CORE.b, 4), -0.25);
+  }
+  function corePt(psi, v, out) {
+    const c = coreCenter(v), r = coreRadius(psi);
+    out[0] = c[0] + r * Math.cos(psi); out[1] = v * H; out[2] = c[1] + r * Math.sin(psi);
+    return out;
+  }
+
+  // Interior columns: ten, on a ring at 60 % of the plan, twisting with it, so every one is inclined.
+  const NCOL = 10;
+  function columnPt(j, v, out) {
+    const theta = (TAU * j) / NCOL + 0.3 + twist(v);
+    const c = center(v), r = radius(theta, v) * 0.6;
+    out[0] = c[0] + r * Math.cos(theta); out[1] = v * H; out[2] = c[1] + r * Math.sin(theta);
+    return out;
+  }
+
+  // The exoskeleton IS the diagrid. Eight feet spring from the plaza; from each,
+  // two arms spiral up in opposite senses and cross their neighbours five times.
+  // The crossings bunch towards the base, where the overturning moment is largest.
+  const EXO = { n: 8, rows: 5, inset: 0.3 };
+  const exoAlpha = (v) => (Math.PI / EXO.n) * EXO.rows * Math.pow(clamp01(v / V_TOP), 0.75);
+  const exoTheta = (i, fam, v) => (TAU * i) / EXO.n + twist(v) + fam * exoAlpha(v);
+  const crossV = (m) => V_TOP * Math.pow(m / EXO.rows, 1 / 0.75); // height of crossing row m
+  // Point on an exoskeleton curve, pushed `off` units out from the glass (negative = inside).
+  function exoPt(i, fam, v, off, out) {
+    const th = exoTheta(i, fam, v);
+    facadePt(th, v, out);
+    const c = center(v), dx = out[0] - c[0], dz = out[2] - c[1], l = Math.hypot(dx, dz) || 1;
+    out[0] += (dx / l) * off; out[2] += (dz / l) * off;
+    return out;
+  }
+  // Offset any facade point radially, used for members that sit just inside the skin.
+  function insetPt(p, v, off) {
+    const c = center(v), dx = p[0] - c[0], dz = p[2] - c[1], l = Math.hypot(dx, dz) || 1;
+    p[0] -= (dx / l) * off; p[2] -= (dz / l) * off;
+    return p;
+  }
+
+  // The plaza canopy: a shell ribbon that peels off the tower at L12, spirals out and lands.
+  const CAN = { th0: 2.75, sweep: 2.3, y0: 5.8, rEnd: 12.8 };
+  function canopyPath(s, out) {
+    const th = CAN.th0 + CAN.sweep * s;
+    const v0 = CAN.y0 / H, c = center(0.12);
+    const r0 = radius(th, v0) - 0.9;
+    const rho = r0 + (CAN.rEnd - r0) * (1 - Math.pow(1 - s, 1.8));
+    const h = CAN.y0 * (1 + 0.24 * Math.sin(Math.PI * s)) * (1 - Math.pow(s, 2.3));
+    out[0] = c[0] + rho * Math.cos(th); out[1] = h; out[2] = c[1] + rho * Math.sin(th);
+    return out;
+  }
+  const _ca = [0, 0, 0], _cb = [0, 0, 0];
+  function canopyPt(s, a, out) {
+    canopyPath(s, out);
+    canopyPath(Math.min(1, s + 0.002), _ca); canopyPath(Math.max(0, s - 0.002), _cb);
+    let tx = _ca[0] - _cb[0], ty = _ca[1] - _cb[1], tz = _ca[2] - _cb[2];
+    const tl = Math.hypot(tx, ty, tz) || 1; tx /= tl; ty /= tl; tz /= tl;
+    // B: horizontal, perpendicular to the path; U: completes the frame.
+    let bx = tz, bz = -tx; const bl = Math.hypot(bx, bz) || 1; bx /= bl; bz /= bl;
+    let ux = ty * bz, uy = tz * bx - tx * bz, uz = -ty * bx;
+    const ul = Math.hypot(ux, uy, uz) || 1; ux /= ul; uy /= ul; uz /= ul;
+    if (uy < 0) { ux = -ux; uy = -uy; uz = -uz; }
+    const bank = -0.46 * Math.sin(Math.PI * s);                    // the ribbon leans into its curve
+    const cb = Math.cos(bank), sb = Math.sin(bank);
+    const Bx = bx * cb + ux * sb, By = uy * sb, Bz = bz * cb + uz * sb;
+    const Ux = ux * cb - bx * sb, Uy = uy * cb, Uz = uz * cb - bz * sb;
+    const w = 2.6 + 4.0 * Math.sin(Math.PI * Math.pow(Math.min(s, 0.999), 0.85)) + 2.2 * smooth(0.8, 1, s);
+    const th = 0.55 - 0.25 * s;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const camber = 0.35 * (1 - ca * ca);                            // a shallow arch across the width
+    out[0] += ca * (w / 2) * Bx + (sa * th / 2 + camber) * Ux;
+    out[1] += ca * (w / 2) * By + (sa * th / 2 + camber) * Uy;
+    out[2] += ca * (w / 2) * Bz + (sa * th / 2 + camber) * Uz;
+    return out;
+  }
+
+  /* ── 1b. A defensible stress field ────────────────────────────────────
+     The tower is treated as a cantilevered thin-walled tube. At each height:
+       gravity      N(y) = weight above, spread over the perimeter
+       lateral      M(y) = ∫ f(y')(y'−y) dy', with an inverted-triangle EQ load
+       lean         M(y) = ∫ w(y')(c(y')−c(y)) dy', gravity acting off the spine
+     and plane sections stay plane: σ = −N/A − M·d/I with I ∝ R³. The lean
+     term is the reason this building is hard: its own weight bends it.     */
+  const NP = 64;
+  const PROF_A = new Float32Array(NP * 4); // cx, cz, gravity stress (MPa), bending coefficient
+  const PROF_B = new Float32Array(NP * 4); // lateral moment, lean moment x, lean moment z, girth
+  (function buildProfiles() {
+    const NS = 480, dy = H / NS;
+    const R = [], m = [], cx = [], cz = [];
+    for (let i = 0; i <= NS; i++) {
+      const v = i / NS, c = center(v);
+      let rs = 0; for (let k = 0; k < 24; k++) rs += radius((TAU * k) / 24, v); rs /= 24;
+      R.push(Math.max(rs, 0.6)); m.push(rs * rs); cx.push(c[0]); cz.push(c[1]);
+    }
+    const W = new Array(NS + 1).fill(0), S0 = W.slice(), S1 = W.slice(), Lx = W.slice(), Lz = W.slice();
+    for (let i = NS - 1; i >= 0; i--) {
+      const y = (i + 0.5) * dy, mm = 0.5 * (m[i] + m[i + 1]), f = 0.12 * mm * (y / H);
+      W[i] = W[i + 1] + mm * dy; S0[i] = S0[i + 1] + f * dy; S1[i] = S1[i + 1] + f * y * dy;
+      Lx[i] = Lx[i + 1] + mm * 0.5 * (cx[i] + cx[i + 1]) * dy; Lz[i] = Lz[i + 1] + mm * 0.5 * (cz[i] + cz[i + 1]) * dy;
+    }
+    const G = [], Mw = [], Mx = [], Mz = [];
+    let gMax = 0, bMax = 0;
+    for (let i = 0; i <= NS; i++) {
+      const y = (i / NS) * H;
+      G.push(W[i] / R[i]);
+      Mw.push(S1[i] - y * S0[i]);
+      Mx.push(Lx[i] - cx[i] * W[i]); Mz.push(Lz[i] - cz[i] * W[i]);
+      gMax = Math.max(gMax, G[i]);
+      bMax = Math.max(bMax, (Math.abs(Mw[i]) + Math.hypot(Mx[i], Mz[i])) / (R[i] * R[i]));
+    }
+    const Kg = 16 / gMax, Kb = 34 / bMax; // MPa: 16 from gravity, up to 34 from bending
+    for (let p = 0; p < NP; p++) {
+      const i = Math.round((p / (NP - 1)) * NS), v = i / NS;
+      PROF_A.set([cx[i], cz[i], Kg * G[i], Kb / (R[i] ** 3)], p * 4);
+      PROF_B.set([Mw[i], Mx[i], Mz[i], girth(v)], p * 4);
+    }
+  })();
+  function prof(arr, v, out) {
+    const f = clamp01(v) * (NP - 1), i = Math.floor(f), j = Math.min(i + 1, NP - 1), t = f - i;
+    for (let k = 0; k < 4; k++) out[k] = arr[i * 4 + k] + (arr[j * 4 + k] - arr[i * 4 + k]) * t;
+    return out;
+  }
+  const _pa = [0, 0, 0, 0], _pb = [0, 0, 0, 0];
+  function sigmaAt(x, y, z, loadAngle, loadAmp) {
+    prof(PROF_A, y / H, _pa); prof(PROF_B, y / H, _pb);
+    const mx = loadAmp * _pb[0] * Math.cos(loadAngle) + _pb[1];
+    const mz = loadAmp * _pb[0] * Math.sin(loadAngle) + _pb[2];
+    return -_pa[2] - _pa[3] * (mx * (x - _pa[0]) + mz * (z - _pa[1]));
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     2. BOOT: WebGL check, then three.js from the CDN
+     ════════════════════════════════════════════════════════════════════ */
+  const hero = $('hero'), canvas = $('scene'), hud = $('hud'), loader = $('loader');
+  const params = new URLSearchParams(location.search);
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // ?t=12.5 freezes the sequence at that second. Used to capture posters; harmless otherwise.
+  let pinnedT = params.has('t') ? Math.max(0, parseFloat(params.get('t')) || 0) : null;
+  if (reduceMotion && pinnedT === null) pinnedT = 7.4; // a still that shows both halves of the story
+
+  function fail(err) {
+    if (err) console.warn('[openanstruk] hero falls back to a still:', err);
+    hero.classList.add('no-webgl');
+  }
+  let gl2 = false;
+  try { gl2 = !!document.createElement('canvas').getContext('webgl2'); } catch (e) { gl2 = false; }
+  if (!gl2) { fail(); return; }
+
+  // ⚠ The specifiers go through a variable on purpose. Vite scans classic inline
+  // scripts for import('literal') and tries to bundle the literal as a file, which
+  // breaks the build. Through a variable they stay runtime imports for the map above.
+  const load = (spec) => import(spec);
+  Promise.all([
+    'three',
+    'three/addons/postprocessing/EffectComposer.js',
+    'three/addons/postprocessing/RenderPass.js',
+    'three/addons/postprocessing/UnrealBloomPass.js',
+    'three/addons/postprocessing/OutputPass.js',
+    'three/addons/postprocessing/ShaderPass.js',
+  ].map(load)).then((mods) => {
+    try { start(...mods); } catch (e) { fail(e); }
+  }).catch(fail);
+
+  /* ════════════════════════════════════════════════════════════════════
+     3. THE SCENE
+     ════════════════════════════════════════════════════════════════════ */
+  function start(THREE, { EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }, { ShaderPass }) {
+    const isSmall = () => innerWidth <= 980;
+    let dpr = Math.min(devicePixelRatio || 1, 1.5);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(dpr);
+    renderer.toneMapping = THREE.NeutralToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setClearColor(0x05080d, 1);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 900);
+
+    /* ── Shared uniforms: one object, referenced by every material ───── */
+    const lin = (hex) => new THREE.Color(hex); // THREE.Color stores linear values
+    const U = {
+      uTime: { value: 0 },
+      uScan: { value: -1 },
+      uWake: { value: 0 },
+      uSparkle: { value: 0 },
+      uH: { value: H },
+      uFH: { value: FH },
+      uLoadAngle: { value: 0 },
+      uLoadAmp: { value: 1 },
+      uSway: { value: 0 },
+      uTorsion: { value: 0 },
+      uModeAmp: { value: new THREE.Vector2(0, 0) },
+      uMapW: { value: new THREE.Vector3(1, 0, 0) },
+      uAna: { value: 0 },
+      uGhost: { value: 0 },
+      uIce: { value: lin('#9fe4ff') },
+      uWarm: { value: lin('#ffc58a') },
+      uRamp: { value: RAMP.map((h) => lin(h)) },
+      uBands: { value: BANDS },
+      uProfA: { value: [] },
+      uProfB: { value: [] },
+      uPx: { value: 1.5 },
+    };
+    for (let i = 0; i < NP; i++) {
+      U.uProfA.value.push(new THREE.Vector4().fromArray(PROF_A, i * 4));
+      U.uProfB.value.push(new THREE.Vector4().fromArray(PROF_B, i * 4));
+    }
+
+    /* ── GLSL shared by the analysis materials ───────────────────────── */
+    const GLSL_FIELD = /* glsl */`
+      uniform vec4 uProfA[64];
+      uniform vec4 uProfB[64];
+      uniform float uH, uLoadAngle, uLoadAmp, uSway, uTorsion;
+      uniform vec2 uModeAmp;
+      vec4 profA(float v) { float f = clamp(v, 0.0, 1.0) * 63.0; int i = int(floor(f)); int j = min(i + 1, 63); return mix(uProfA[i], uProfA[j], f - float(i)); }
+      vec4 profB(float v) { float f = clamp(v, 0.0, 1.0) * 63.0; int i = int(floor(f)); int j = min(i + 1, 63); return mix(uProfB[i], uProfB[j], f - float(i)); }
+      // Plane sections stay plane: sigma = -N/A - M.d/I (compression negative, MPa).
+      float sigmaAt(vec3 p) {
+        float v = p.y / uH; vec4 a = profA(v); vec4 b = profB(v);
+        vec2 dir = vec2(cos(uLoadAngle), sin(uLoadAngle));
+        vec2 mo = uLoadAmp * b.x * dir + b.yz;
+        return -a.z - a.w * dot(mo, p.xz - a.xy);
+      }
+      // First sway mode of a cantilever plus a linear torsion mode about the spine.
+      vec3 deformAt(vec3 p) {
+        float v = clamp(p.y / uH, 0.0, 1.0); vec4 a = profA(v);
+        vec2 dir = vec2(cos(uLoadAngle), sin(uLoadAngle));
+        float phi = v * v * (1.5 - 0.5 * v);
+        float ang = uTorsion * v; float c = cos(ang), s = sin(ang);
+        vec2 r = p.xz - a.xy; r = vec2(c * r.x - s * r.y, s * r.x + c * r.y);
+        return vec3(a.x + r.x + dir.x * uSway * phi, p.y, a.y + r.y + dir.y * uSway * phi);
+      }
+      // Normalised mode-shape amplitude (0..1), the way FE post-processors colour modes.
+      // It uses the envelope, not the instantaneous swing, so colours hold while it moves.
+      float dispAt(vec3 p) {
+        float v = clamp(p.y / uH, 0.0, 1.0); vec4 a = profA(v);
+        float phi = v * v * (1.5 - 0.5 * v);
+        float d = uModeAmp.x * phi + uModeAmp.y * v * length(p.xz - a.xy);
+        return d / (uModeAmp.x + uModeAmp.y * 4.5 + 1e-3);
+      }
+    `;
+    const GLSL_COLOR = /* glsl */`
+      uniform vec3 uRamp[8];
+      uniform float uBands;
+      vec3 rampAt(float x) { float f = clamp(x, 0.0, 1.0) * 7.0; int i = int(floor(f)); int j = min(i + 1, 7); return mix(uRamp[i], uRamp[j], f - float(i)); }
+      // Banded contours with thin iso-lines, the way FE post-processors draw them.
+      vec3 contourAt(float n) {
+        float x = clamp(n, 0.0, 0.9999) * uBands;
+        vec3 col = rampAt((floor(x) + 0.5) / uBands);
+        float f = fract(x); float w = max(fwidth(x), 1e-4);
+        float iso = 1.0 - smoothstep(0.0, 1.5 * w, min(f, 1.0 - f));
+        return col * (1.0 - 0.45 * iso);
+      }
+      float gridLine(float x, float scale) { float g = x * scale; float f = fract(g); float w = max(fwidth(g), 1e-4); return 1.0 - smoothstep(0.0, 1.25 * w, min(f, 1.0 - f)); }
+    `;
+
+    /* ── Geometry helpers ────────────────────────────────────────────── */
+    // A parametric surface with normals from finite differences, oriented so
+    // they point away from `inside(u, v)`. Seams get identical normals.
+    function surface(nu, nv, fn, inside) {
+      const pos = new Float32Array((nu + 1) * (nv + 1) * 3), nor = new Float32Array(pos.length), uv = new Float32Array((nu + 1) * (nv + 1) * 2);
+      const p = [0, 0, 0], a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0], d = [0, 0, 0], q = [0, 0, 0];
+      const e = 1e-3;
+      let flip = 0;
+      for (let i = 0; i <= nv; i++) {
+        const v = i / nv;
+        for (let j = 0; j <= nu; j++) {
+          const u = j / nu, o = i * (nu + 1) + j;
+          fn(u, v, p); fn(u + e, v, a); fn(u - e, v, b); fn(u, v + e, c); fn(u, v - e, d);
+          const ux = a[0] - b[0], uy = a[1] - b[1], uz = a[2] - b[2];
+          const vx = c[0] - d[0], vy = c[1] - d[1], vz = c[2] - d[2];
+          let nx = vy * uz - vz * uy, ny = vz * ux - vx * uz, nz = vx * uy - vy * ux;
+          const l = Math.hypot(nx, ny, nz);
+          if (l < 1e-12) { nx = 0; ny = 1; nz = 0; } else { nx /= l; ny /= l; nz /= l; }
+          if (flip === 0 && i === (nv >> 1) && j === (nu >> 1)) {
+            inside(u, v, q);
+            flip = (nx * (p[0] - q[0]) + ny * (p[1] - q[1]) + nz * (p[2] - q[2])) < 0 ? -1 : 1;
+          }
+          pos.set(p, o * 3); nor.set([nx, ny, nz], o * 3); uv.set([u, v], o * 2);
+        }
+      }
+      const idx = [];
+      for (let i = 0; i < nv; i++) for (let j = 0; j < nu; j++) {
+        const A = i * (nu + 1) + j, B = A + 1, C = A + nu + 1, D = C + 1;
+        if (flip >= 0) idx.push(A, C, B, B, C, D); else idx.push(A, B, C, B, D, C);
+      }
+      if (flip < 0) for (let k = 0; k < nor.length; k++) nor[k] = -nor[k];
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      g.setIndex(idx);
+      return g;
+    }
+
+    /* ── Materials: architecture ─────────────────────────────────────── */
+    // Architecture is drawn ABOVE the scan line and dissolves below it.
+    function archMaterial(params, inject = {}) {
+      const m = new THREE.MeshPhysicalMaterial(params);
+      m.onBeforeCompile = (sh) => {
+        sh.uniforms.uScan = U.uScan; sh.uniforms.uWake = U.uWake; sh.uniforms.uIce = U.uIce;
+        sh.uniforms.uWarm = U.uWarm; sh.uniforms.uFH = U.uFH; sh.uniforms.uTime = U.uTime;
+        sh.vertexShader = sh.vertexShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vLocal;\nvarying vec2 vFUv;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLocal = position;\nvFUv = uv;');
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', `#include <common>
+            uniform float uScan, uWake, uFH, uTime; uniform vec3 uIce, uWarm;
+            varying vec3 vLocal; varying vec2 vFUv;
+            float hash21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+            float aaLine(float x, float s) { float g = x * s; float f = fract(g); float w = max(fwidth(g), 1e-4); return 1.0 - smoothstep(0.0, 1.5 * w, min(f, 1.0 - f)); }`)
+          .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (vLocal.y < uScan) discard;')
+          .replace('#include <color_fragment>', '#include <color_fragment>\n' + (inject.color || ''))
+          .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n' + (inject.emissive || '') +
+            '\ntotalEmissiveRadiance += uIce * 4.0 * uWake * (1.0 - smoothstep(0.0, 0.5, vLocal.y - uScan));');
+      };
+      return m;
+    }
+    const matGlass = archMaterial(
+      { color: 0x0a1119, roughness: 0.06, metalness: 0.2, envMapIntensity: 1.5, emissive: 0xffffff, clearcoat: 1, clearcoatRoughness: 0.04 },
+      { emissive: /* glsl */`
+          // Tenancies: a few wide zones per floor, about half of them lit, a few
+          // stray bays on, light pooling under each ceiling. Plant floors stay dark.
+          float fl = floor(vLocal.y / uFH);
+          float zone = floor(vFUv.x * 7.0 + hash21(vec2(fl, 9.0)) * 3.0);
+          float h1 = hash21(vec2(fl, zone));
+          float h2 = hash21(vec2(fl, floor(vFUv.x * 110.0)));
+          float lit = step(0.66, h1) * (0.55 + 0.45 * h2) + step(0.975, h2) * 0.6;
+          float ceilGlow = smoothstep(0.05, 0.92, fract(vLocal.y / uFH));
+          float mech = (fl >= 24.0 && fl <= 26.0) || (fl >= 48.0 && fl <= 50.0) ? 0.0 : 1.0;
+          float lobby = fl < 3.0 ? 1.0 : 0.0;
+          vec3 tint = mix(uWarm, vec3(0.62, 0.74, 0.92), step(0.86, h1) * 0.7);
+          totalEmissiveRadiance = tint * (max(lit * 0.26, lobby * 0.6) * ceilGlow * mech + 0.004);` });
+    const matWhite = archMaterial({ color: 0xe9edf1, roughness: 0.36, metalness: 0.0, clearcoat: 0.55, clearcoatRoughness: 0.22, envMapIntensity: 0.9 });
+    const matCanopy = archMaterial(
+      { color: 0xe9edf1, roughness: 0.32, metalness: 0.0, clearcoat: 0.6, clearcoatRoughness: 0.2, envMapIntensity: 0.9 },
+      { color: /* glsl */`diffuseColor.rgb *= 1.0 - 0.28 * aaLine(vFUv.y, 30.0) - 0.12 * aaLine(vFUv.x, 26.0);` });
+
+    /* ── Materials: analysis ─────────────────────────────────────────── */
+    // Analysis is drawn BELOW the scan line.
+    const memberMat = new THREE.ShaderMaterial({
+      uniforms: U,
+      vertexShader: GLSL_FIELD + /* glsl */`
+        attribute float aSeed;
+        attribute float aKind;
+        varying vec3 vMap; varying vec3 vN; varying vec3 vView; varying float vY;
+        void main() {
+          vec3 p = position; vec3 n = normal;
+          #ifdef USE_INSTANCING
+            p = (instanceMatrix * vec4(position, 1.0)).xyz;
+            n = mat3(instanceMatrix) * normal;
+          #endif
+          float sig = sigmaAt(p);
+          float s = clamp(abs(sig) / 52.0, 0.0, 1.0);
+          // D/C: members are sized to their demand, so utilisation clusters 0.4–0.9.
+          float u = clamp(0.30 + 0.62 * s + (aSeed - 0.5) * 0.16, 0.0, 0.91);
+          vMap = vec3(s, clamp(dispAt(p), 0.0, 1.0), u);
+          vY = p.y;
+          vec4 wp = modelMatrix * vec4(deformAt(p), 1.0);
+          vN = normalize(mat3(modelMatrix) * n);
+          vView = cameraPosition - wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }`,
+      fragmentShader: GLSL_COLOR + /* glsl */`
+        uniform vec3 uMapW, uIce; uniform float uScan, uWake;
+        varying vec3 vMap; varying vec3 vN; varying vec3 vView; varying float vY;
+        void main() {
+          if (vY > uScan) discard;
+          // Bands without iso-lines: on a thin member the lines only read as dark streaks.
+          float x = clamp(dot(uMapW, vMap), 0.0, 0.9999) * uBands;
+          vec3 base = rampAt((floor(x) + 0.5) / uBands);
+          vec3 N = normalize(vN), V = normalize(vView);
+          float ndl = max(dot(N, normalize(vec3(0.35, 0.8, 0.45))), 0.0);
+          float rim = pow(1.0 - abs(dot(N, V)), 2.0);
+          vec3 col = base * (0.5 + 0.7 * ndl) + base * rim * 0.8;
+          col += uIce * exp(-(uScan - vY) * 1.5) * uWake * 2.5;
+          gl_FragColor = vec4(col * 1.25, 1.0);
+        }`,
+    });
+
+    // Shells (core walls, canopy) and plates: contour fill plus the FE mesh drawn on top.
+    function shellMaterial({ field, meshU = 48, meshV = 72, alpha = 1, extraUniforms = {} }) {
+      return new THREE.ShaderMaterial({
+        uniforms: Object.assign({}, U, extraUniforms),
+        transparent: alpha < 1,
+        depthWrite: alpha >= 1,
+        side: THREE.DoubleSide,
+        vertexShader: GLSL_FIELD + /* glsl */`
+          varying vec3 vMap; varying vec3 vN; varying vec3 vView; varying float vY; varying vec2 vUv; varying vec3 vLocal;
+          void main() {
+            vec3 p = position;
+            vLocal = p; vUv = uv; vY = p.y;
+            ${field === 'tower' ? `
+              float s = clamp(abs(sigmaAt(p)) * 1.25 / 52.0, 0.0, 1.0);
+              vMap = vec3(s, clamp(dispAt(p), 0.0, 1.0), clamp(0.3 + 0.55 * s, 0.0, 0.91));` : ''}
+            ${field === 'canopy' ? `
+              float sx = uv.x, t = cos(uv.y * 6.2831853);
+              float s = 0.18 + 0.62 * exp(-sx / 0.09) + 0.42 * exp(-(1.0 - sx) / 0.06) + 0.22 * sin(3.14159 * sx) * t * t + 0.08 * sin(9.0 * sx + 2.0 * t);
+              s = clamp(s, 0.0, 1.0);
+              vMap = vec3(s, clamp(dispAt(p), 0.0, 1.0) * 0.5, 0.25 + 0.5 * s);` : ''}
+            ${field === 'plate' ? `vMap = vec3(0.0, clamp(dispAt(p), 0.0, 1.0), 0.0);` : ''}
+            vec4 wp = modelMatrix * vec4(deformAt(p), 1.0);
+            vN = normalize(mat3(modelMatrix) * normal);
+            vView = cameraPosition - wp.xyz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }`,
+        fragmentShader: GLSL_COLOR + /* glsl */`
+          uniform vec3 uMapW, uIce; uniform float uScan, uWake, uFH;
+          uniform vec2 uCols[10]; uniform vec2 uCoreC; uniform float uCoreR; uniform vec2 uSlabC; uniform float uEdge[48];
+          varying vec3 vMap; varying vec3 vN; varying vec3 vView; varying float vY; varying vec2 vUv; varying vec3 vLocal;
+          void main() {
+            if (vY > uScan) discard;
+            vec3 m = vMap;
+            ${field === 'plate' ? `
+              // Plate bending: hogging over every support, sagging in the open panels.
+              vec2 q = vLocal.xz; float dmin = 1e3;
+              for (int i = 0; i < 10; i++) dmin = min(dmin, length(q - uCols[i]));
+              dmin = min(dmin, max(length(q - uCoreC) - uCoreR, 0.0));
+              vec2 rq = q - uSlabC; float ang = atan(rq.y, rq.x); float fi = (ang / 6.2831853 + 0.5) * 48.0;
+              int i0 = int(floor(fi)) % 48; int i1 = (i0 + 1) % 48;
+              float edge = mix(uEdge[i0], uEdge[i1], fract(fi)) - length(rq);
+              dmin = min(dmin, max(edge, 0.0));
+              float hog = exp(-dmin * dmin / 0.2);
+              float sag = smoothstep(0.1, 1.4, dmin);
+              float s = clamp(0.30 + 0.66 * sag - 0.28 * hog, 0.0, 1.0);
+              m = vec3(s, m.y, 0.25 + 0.5 * s);` : ''}
+            vec3 base = contourAt(dot(uMapW, m));
+            vec3 N = normalize(vN), V = normalize(vView);
+            float ndl = abs(dot(N, normalize(vec3(0.35, 0.8, 0.45))));
+            float rim = pow(1.0 - abs(dot(N, V)), 2.0);
+            vec3 col = base * (0.55 + 0.55 * ndl) + base * rim * 0.5;
+            ${field === 'plate'
+              ? `float mesh = max(gridLine(vLocal.x, 2.4), gridLine(vLocal.z, 2.4));`
+              : `float mesh = max(gridLine(vUv.x, ${meshU.toFixed(1)}), gridLine(vUv.y, ${meshV.toFixed(1)}));`}
+            col = mix(col, col * 0.35, mesh * 0.55);
+            col += uIce * exp(-(uScan - vY) * 1.5) * uWake * 2.0;
+            gl_FragColor = vec4(col * 1.15, ${alpha.toFixed(2)});
+          }`,
+      });
+    }
+
+    // The envelope during analysis: a fresnel hologram with floor lines.
+    const ghostMat = new THREE.ShaderMaterial({
+      uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: GLSL_FIELD + /* glsl */`
+        varying vec3 vN; varying vec3 vView; varying float vY; varying vec2 vUv;
+        void main() {
+          vY = position.y; vUv = uv;
+          vec4 wp = modelMatrix * vec4(deformAt(position), 1.0);
+          vN = normalize(mat3(modelMatrix) * normal); vView = cameraPosition - wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }`,
+      fragmentShader: GLSL_COLOR + /* glsl */`
+        uniform vec3 uIce; uniform float uScan, uWake, uFH, uAna;
+        varying vec3 vN; varying vec3 vView; varying float vY; varying vec2 vUv;
+        void main() {
+          if (vY > uScan) discard;
+          float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 3.0);
+          float a = 0.012 + 0.22 * fres + 0.10 * gridLine(vY, 1.0 / uFH) + 0.05 * gridLine(vUv.x, 40.0);
+          a += exp(-(uScan - vY) * 1.1) * uWake * 0.5;
+          gl_FragColor = vec4(uIce, a);
+        }`,
+    });
+
+    /* ── Build: architecture ─────────────────────────────────────────── */
+    const bld = new THREE.Group();
+    scene.add(bld);
+    const arch = new THREE.Group(), ana = new THREE.Group();
+    bld.add(arch, ana);
+
+    const towerInside = (u, v, out) => { const vv = v * V_TOP, c = center(vv); out[0] = c[0]; out[1] = vv * H; out[2] = c[1]; return out; };
+    const facadeGeo = surface(176, 160, (u, v, out) => facadePt(u * TAU, v * V_TOP, out), towerInside);
+    const glass = new THREE.Mesh(facadeGeo, matGlass);
+    glass.castShadow = true; glass.receiveShadow = true;
+    arch.add(glass);
+
+    const domeGeo = surface(176, 18, (u, v, out) => facadePt(u * TAU, V_TOP + v * (1 - V_TOP), out),
+      (u, v, out) => { const c = center(0.9); out[0] = c[0]; out[1] = 0.9 * H; out[2] = c[1]; return out; });
+    const dome = new THREE.Mesh(domeGeo, matGlass);
+    dome.castShadow = true; dome.receiveShadow = true;
+    arch.add(dome);
+
+    // Fins: a thin white slab edge per floor whose depth drifts in diagonal waves.
+    // They are the fine grain; the exoskeleton below is the gesture.
+    function finShape(theta, k) {
+      const w = 0.5 + 0.5 * Math.sin(2 * theta - 0.17 * k + 0.9 * Math.sin(theta + 0.05 * k));
+      const mech = MECH.some((m) => k >= m && k <= m + 2) ? 1 : 0;
+      return [0.05 + 0.11 * w * w + 0.16 * mech, 0.036 + 0.02 * w + 0.05 * mech];
+    }
+    (function buildFins() {
+      const SEG = 176, PROF = 7;
+      const pos = [], nor = [], idx = [];
+      const P = [], Nn = [], tmp = [0, 0, 0];
+      let base = 0;
+      for (let k = 1; k / FLOORS <= V_TOP - 0.004; k++) {
+        const v = k / FLOORS, y = k * FH;
+        P.length = 0; Nn.length = 0;
+        for (let j = 0; j <= SEG; j++) { facadePt((TAU * j) / SEG, v, tmp); P.push([tmp[0], tmp[2]]); }
+        for (let j = 0; j <= SEG; j++) {
+          const a = P[(j + SEG - 1) % SEG], b = P[(j + 1) % SEG];
+          const tx = b[0] - a[0], tz = b[1] - a[1], l = Math.hypot(tx, tz) || 1;
+          Nn.push([tz / l, -tx / l]);
+        }
+        for (let j = 0; j <= SEG; j++) {
+          const [d, t] = finShape((TAU * j) / SEG, k);
+          const r = t / 2, xc = d - r;
+          const prof = [[-0.05, r, 0, 1]];
+          for (const ang of [90, 45, 0, -45, -90]) { const a = (ang * Math.PI) / 180; prof.push([xc + r * Math.cos(a), r * Math.sin(a), Math.cos(a), Math.sin(a)]); }
+          prof.push([-0.05, -r, 0, -1]);
+          const [px, pz] = P[j], [nx, nz] = Nn[j];
+          for (const [pn, py, qn, qy] of prof) {
+            pos.push(px + nx * pn, y + py, pz + nz * pn);
+            const l = Math.hypot(qn, qy) || 1;
+            nor.push((nx * qn) / l, qy / l, (nz * qn) / l);
+          }
+        }
+        for (let j = 0; j < SEG; j++) for (let q = 0; q < PROF - 1; q++) {
+          const a = base + j * PROF + q, b = base + (j + 1) * PROF + q, c = a + 1, d2 = b + 1;
+          idx.push(a, b, c, b, d2, c);
+        }
+        base += (SEG + 1) * PROF;
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));
+      g.setIndex(idx);
+      const fins = new THREE.Mesh(g, matWhite);
+      fins.castShadow = true; fins.receiveShadow = true;
+      arch.add(fins);
+    })();
+
+    // Concatenate geometries into one draw call.
+    function merge(geos) {
+      let nv = 0, ni = 0;
+      for (const g of geos) { nv += g.attributes.position.count; ni += g.index.count; }
+      const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), idx = new Uint32Array(ni);
+      let ov = 0, oi = 0;
+      for (const g of geos) {
+        pos.set(g.attributes.position.array, ov * 3); nor.set(g.attributes.normal.array, ov * 3); uv.set(g.attributes.uv.array, ov * 2);
+        const I = g.index.array; for (let k = 0; k < I.length; k++) idx[oi + k] = I[k] + ov;
+        ov += g.attributes.position.count; oi += I.length; g.dispose();
+      }
+      const out = new THREE.BufferGeometry();
+      out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      out.setIndex(new THREE.BufferAttribute(idx, 1));
+      return out;
+    }
+    // A soft elliptical band swept along a curve that lies on the skin. Its frame
+    // uses the outward radial direction, so the band always lies flat on the facade.
+    function band(curve, nu, width, depth) {
+      const A = [0, 0, 0], B = [0, 0, 0];
+      let P = null;
+      // Every ring of the sweep asks for the same frames, so compute each one once.
+      const memo = new Map();
+      const frame = (u) => {
+        const hit = memo.get(u);
+        if (hit) { P = hit.P; return hit.f; }
+        P = curve(u, [0, 0, 0]); curve(Math.min(1, u + 0.004), A); curve(Math.max(0, u - 0.004), B);
+        let tx = A[0] - B[0], ty = A[1] - B[1], tz = A[2] - B[2]; const tl = Math.hypot(tx, ty, tz) || 1; tx /= tl; ty /= tl; tz /= tl;
+        const c = center(P[1] / H); let ox = P[0] - c[0], oy = 0, oz = P[2] - c[1];
+        const d = ox * tx + oz * tz; ox -= d * tx; oy -= d * ty; oz -= d * tz;
+        const ol = Math.hypot(ox, oy, oz) || 1; ox /= ol; oy /= ol; oz /= ol;
+        const f = [tx, ty, tz, ox, oy, oz, ty * oz - tz * oy, tz * ox - tx * oz, tx * oy - ty * ox];
+        memo.set(u, { P, f });
+        return f;
+      };
+      return surface(nu, 12, (u, w, out) => {
+        const [, , , ox, oy, oz, bx, by, bz] = frame(u);
+        const a = w * TAU, ca = Math.cos(a), sa = Math.sin(a), wd = width(u) / 2, dp = depth(u) / 2;
+        out[0] = P[0] + bx * ca * wd + ox * (sa * dp + dp * 0.55);
+        out[1] = P[1] + by * ca * wd + oy * (sa * dp + dp * 0.55);
+        out[2] = P[2] + bz * ca * wd + oz * (sa * dp + dp * 0.55);
+        return out;
+      }, (u, w, out) => { const f = frame(u), dp = depth(u) / 2; out[0] = P[0] + f[3] * dp * 0.55; out[1] = P[1] + f[4] * dp * 0.55; out[2] = P[2] + f[5] * dp * 0.55; return out; });
+    }
+    (function buildExoskeleton() {
+      const parts = [];
+      // Form follows force: each arm thickens where its own weight and the lean
+      // compress it, so the side the crown overhangs carries visibly heavier arms.
+      const q = [0, 0, 0];
+      const wOf = (i, fam, v) => {
+        exoPt(i, fam, v, 0, q);
+        const sg = Math.abs(sigmaAt(q[0], q[1], q[2], 0, 0));
+        return (0.9 - 0.52 * Math.pow(v / V_TOP, 0.7)) * (0.62 + 0.62 * clamp01(sg / 24));
+      };
+      const dOf = (v) => 0.44 - 0.18 * (v / V_TOP);
+      for (let i = 0; i < EXO.n; i++) for (const fam of [1, -1]) {
+        const vAt = (u) => lerp(-0.014, V_TOP, u);
+        parts.push(band((u, out) => exoPt(i, fam, vAt(u), 0, out), 200, (u) => wOf(i, fam, Math.max(vAt(u), 0)), (u) => dOf(Math.max(vAt(u), 0))));
+      }
+      // Crown: a ring where the arms meet, ribs over a glass dome, and an oculus.
+      const V_OC = 0.986;
+      parts.push(band((u, out) => facadePt(u * TAU, V_TOP, out), 220, () => 0.3, () => 0.26));
+      for (let i = 0; i < EXO.n; i++) {
+        const th0 = exoTheta(i, 1, V_TOP);
+        parts.push(band((u, out) => { const v = V_TOP + u * (V_OC - V_TOP); return facadePt(th0 + twist(v) - twist(V_TOP), v, out); }, 40, (u) => 0.22 - 0.08 * u, () => 0.2));
+      }
+      parts.push(band((u, out) => facadePt(u * TAU, V_OC, out), 120, () => 0.16, () => 0.2));
+      const exo = new THREE.Mesh(merge(parts), matWhite);
+      exo.castShadow = true; exo.receiveShadow = true;
+      arch.add(exo);
+    })();
+
+    const canopyInside = (u, v, out) => canopyPath(u, out);
+    const canopyGeo = surface(220, 36, (u, v, out) => canopyPt(u, v * TAU, out), canopyInside);
+    const canopy = new THREE.Mesh(canopyGeo, matCanopy);
+    canopy.castShadow = true; canopy.receiveShadow = true;
+    arch.add(canopy);
+
+    // A polished plaza: everything is mirrored under a ground that lets ~15 % through.
+    const mirror = new THREE.Group();
+    mirror.scale.y = -1;
+    for (const m of arch.children) mirror.add(new THREE.Mesh(m.geometry, m.material));
+    bld.add(mirror);
+
+    /* ── Build: analysis model ───────────────────────────────────────── */
+    const members = []; // { a, b, r, kind }
+    const pa = [0, 0, 0], pb = [0, 0, 0];
+    const addMember = (a, b, r, kind) => { members.push({ a: a.slice(), b: b.slice(), r, kind }); return members.length - 1; };
+
+    // The exoskeleton as a frame model: each arm in 24 segments, ring beams at the six crossing rows, crown ribs.
+    const EXO_SEG = 24;
+    for (let i = 0; i < EXO.n; i++) for (const fam of [1, -1]) for (let s = 0; s < EXO_SEG; s++) {
+      exoPt(i, fam, (s / EXO_SEG) * V_TOP, 0.14, pa); exoPt(i, fam, ((s + 1) / EXO_SEG) * V_TOP, 0.14, pb);
+      addMember(pa, pb, 0.085, 0);
+    }
+    for (let m = 1; m <= EXO.rows; m++) {
+      const v = crossV(m);
+      for (let j = 0; j < 48; j++) { facadePt((TAU * j) / 48, v, pa); facadePt((TAU * (j + 1)) / 48, v, pb); insetPt(pa, v, -0.1); insetPt(pb, v, -0.1); addMember(pa, pb, 0.05, 1); }
+    }
+    for (let i = 0; i < EXO.n; i++) {
+      const th0 = exoTheta(i, 1, V_TOP);
+      for (let s = 0; s < 4; s++) {
+        const v0 = V_TOP + (s / 4) * (0.986 - V_TOP), v1 = V_TOP + ((s + 1) / 4) * (0.986 - V_TOP);
+        facadePt(th0 + twist(v0) - twist(V_TOP), v0, pa); facadePt(th0 + twist(v1) - twist(V_TOP), v1, pb);
+        addMember(pa, pb, 0.06, 0);
+      }
+    }
+
+    // Interior columns, storey by storey (the double-height lobby runs L00–L02 in one piece)
+    const COL_TOP = 66;
+    for (let j = 0; j < NCOL; j++) {
+      columnPt(j, 0, pa); columnPt(j, 2 / FLOORS, pb); addMember(pa, pb, 0.08, 2);
+      for (let k = 2; k < COL_TOP; k++) { columnPt(j, k / FLOORS, pa); columnPt(j, (k + 1) / FLOORS, pb); addMember(pa, pb, 0.065, 2); }
+    }
+
+    // Outriggers (core to perimeter, two storeys deep) and belt trusses
+    const outriggerChords = [];
+    for (const k of MECH) {
+      const v0 = k / FLOORS, v1 = (k + 2) / FLOORS;
+      for (let m = 0; m < 8; m++) {
+        const psi = (TAU * m) / 8 + CORE.rot;
+        const c0 = corePt(psi, v0, [0, 0, 0]), c1 = corePt(psi, v1, [0, 0, 0]);
+        const r0 = facadePt(psi, v0, [0, 0, 0]), r1 = facadePt(psi, v1, [0, 0, 0]);
+        insetPt(r0, v0, EXO.inset); insetPt(r1, v1, EXO.inset);
+        addMember(c0, r0, 0.07, 3);
+        const top = addMember(c1, r1, 0.07, 3);
+        addMember(c0, r1, 0.06, 3); addMember(c1, r0, 0.06, 3); addMember(r0, r1, 0.06, 3);
+        if (m === (k === MECH[0] ? 5 : 1)) outriggerChords.push(top);
+      }
+      for (let j = 0; j < 24; j++) {
+        const th0 = (TAU * j) / 24, th1 = (TAU * (j + 1)) / 24;
+        const ring = (th, v) => insetPt(facadePt(th, v, [0, 0, 0]), v, EXO.inset);
+        const a0 = ring(th0, v0), a1 = ring(th1, v0), b0 = ring(th0, v1), b1 = ring(th1, v1);
+        addMember(a0, a1, 0.05, 4); addMember(b0, b1, 0.05, 4); addMember(j % 2 ? a0 : b0, j % 2 ? b1 : a1, 0.045, 4);
+      }
+    }
+
+    // Crown cantilever at L64, reaching from the core to the overhang
+    const crownCantilever = (() => {
+      const v = 64 / FLOORS;
+      const a = corePt(0.05, v, [0, 0, 0]), b = insetPt(facadePt(0.05, v, [0, 0, 0]), v, EXO.inset);
+      return addMember(a, b, 0.075, 3);
+    })();
+
+    // One instanced mesh for every member. Orientation, length and radius live in the instance matrix.
+    const cyl = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true);
+    const memberMesh = new THREE.InstancedMesh(cyl, memberMat, members.length);
+    {
+      const seeds = new Float32Array(members.length), kinds = new Float32Array(members.length);
+      const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+      const A = new THREE.Vector3(), B = new THREE.Vector3(), M = new THREE.Vector3(), D = new THREE.Vector3(), S = new THREE.Vector3();
+      members.forEach((mb, i) => {
+        A.fromArray(mb.a); B.fromArray(mb.b);
+        M.addVectors(A, B).multiplyScalar(0.5); D.subVectors(B, A);
+        const len = D.length(); q.setFromUnitVectors(up, D.normalize());
+        mtx.compose(M, q, S.set(mb.r, len, mb.r));
+        memberMesh.setMatrixAt(i, mtx);
+        seeds[i] = (Math.sin(i * 127.1) * 43758.5453) % 1; seeds[i] = Math.abs(seeds[i]);
+        kinds[i] = mb.kind;
+      });
+      cyl.setAttribute('aSeed', new THREE.InstancedBufferAttribute(seeds, 1));
+      cyl.setAttribute('aKind', new THREE.InstancedBufferAttribute(kinds, 1));
+      memberMesh.frustumCulled = false;
+    }
+    ana.add(memberMesh);
+    const memberMirror = new THREE.InstancedMesh(cyl, memberMat, members.length);
+    memberMirror.instanceMatrix = memberMesh.instanceMatrix;
+    memberMirror.frustumCulled = false;
+    const anaMirror = new THREE.Group();
+    anaMirror.scale.y = -1;
+    anaMirror.add(memberMirror);
+    bld.add(anaMirror);
+
+    // Undeformed shape, as a faint line ghost, shown while the model vibrates.
+    const ghostLines = (() => {
+      const pts = [];
+      members.forEach((mb) => { if (mb.kind <= 1) pts.push(...mb.a, ...mb.b); });
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+      const m = new THREE.LineBasicMaterial({ color: 0x9fe4ff, transparent: true, opacity: 0, depthWrite: false });
+      const lines = new THREE.LineSegments(g, m);
+      ana.add(lines);
+      return lines;
+    })();
+
+    // RC core: a contoured shell with its FE mesh
+    const coreGeo = surface(64, 90, (u, v, out) => corePt(u * TAU, v * CORE.top, out),
+      (u, v, out) => { const c = coreCenter(v * CORE.top); out[0] = c[0]; out[1] = v * CORE.top * H; out[2] = c[1]; return out; });
+    ana.add(new THREE.Mesh(coreGeo, shellMaterial({ field: 'tower', meshU: 32, meshV: 68 })));
+
+    // Canopy as a shell under load
+    ana.add(new THREE.Mesh(canopyGeo, shellMaterial({ field: 'canopy', meshU: 44, meshV: 12 })));
+
+    // Envelope hologram
+    const ghost = new THREE.Mesh(facadeGeo, ghostMat);
+    ghost.renderOrder = 5;
+    const ghostDome = new THREE.Mesh(domeGeo, ghostMat);
+    ghostDome.renderOrder = 5;
+    ana.add(ghost, ghostDome);
+
+    // Every slab edge, faint
+    {
+      const pts = [], t = [0, 0, 0], t2 = [0, 0, 0], NS = 96;
+      for (let k = 1; k / FLOORS < V_TOP; k++) {
+        const v = k / FLOORS;
+        for (let j = 0; j < NS; j++) {
+          facadePt((TAU * j) / NS, v, t); facadePt((TAU * (j + 1)) / NS, v, t2);
+          pts.push(t[0], t[1] + 0.01, t[2], t2[0], t2[1] + 0.01, t2[2]);
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+      const m = new THREE.ShaderMaterial({
+        uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        vertexShader: GLSL_FIELD + `varying float vY; void main() { vY = position.y; gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(deformAt(position), 1.0); }`,
+        fragmentShader: `uniform float uScan; uniform vec3 uIce; varying float vY; void main() { if (vY > uScan) discard; gl_FragColor = vec4(uIce, 0.16); }`,
+      });
+      ana.add(new THREE.LineSegments(g, m));
+    }
+
+    // Three slabs drawn as plates with a bending contour
+    const FEATURE_SLABS = [14, 37, 60];
+    for (const k of FEATURE_SLABS) {
+      const v = k / FLOORS, c = center(v), cc = coreCenter(v), t = [0, 0, 0];
+      const shape = new THREE.Shape();
+      for (let j = 0; j <= 96; j++) {
+        facadePt((TAU * j) / 96, v, t);
+        const x = c[0] + (t[0] - c[0]) * 0.985, z = c[1] + (t[2] - c[1]) * 0.985;
+        j ? shape.lineTo(x, z) : shape.moveTo(x, z);
+      }
+      const hole = new THREE.Path();
+      for (let j = 0; j <= 48; j++) { corePt((TAU * j) / 48, v, t); j ? hole.lineTo(t[0], t[2]) : hole.moveTo(t[0], t[2]); }
+      shape.holes.push(hole);
+      const g = new THREE.ShapeGeometry(shape, 1);
+      g.rotateX(Math.PI / 2);
+      g.translate(0, k * FH + 0.03, 0);
+      const cols = [], edge = [];
+      for (let j = 0; j < NCOL; j++) { columnPt(j, v, t); cols.push(new THREE.Vector2(t[0], t[2])); }
+      for (let j = 0; j < 48; j++) { const th = (j / 48 - 0.5) * TAU; edge.push(radius(th, v) * 0.985); }
+      const mat = shellMaterial({
+        field: 'plate', alpha: 0.88,
+        extraUniforms: {
+          uCols: { value: cols }, uCoreC: { value: new THREE.Vector2(cc[0], cc[1]) }, uCoreR: { value: 1.2 },
+          uSlabC: { value: new THREE.Vector2(c[0], c[1]) }, uEdge: { value: edge },
+        },
+      });
+      const slab = new THREE.Mesh(g, mat);
+      slab.renderOrder = 2;
+      ana.add(slab);
+    }
+
+    // Lateral load: storey forces as arrows on the windward face, plus their envelope
+    const loadGroup = new THREE.Group();
+    ana.add(loadGroup);
+    const loadMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#0be77e').multiplyScalar(1.4), transparent: true, opacity: 0, depthWrite: false });
+    const loadLineMat = new THREE.LineBasicMaterial({ color: new THREE.Color('#0be77e').multiplyScalar(1.4), transparent: true, opacity: 0, depthWrite: false });
+    let loadTop = new THREE.Vector3();
+    function buildLoads(angle) {
+      loadGroup.clear();
+      const dir = [Math.cos(angle), Math.sin(angle)];
+      const lines = [], env = [];
+      const cone = new THREE.ConeGeometry(0.16, 0.5, 10);
+      const LEVELS = [6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66];
+      const cones = new THREE.InstancedMesh(cone, loadMat, LEVELS.length);
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), dv = new THREE.Vector3(dir[0], 0, dir[1]);
+      q.setFromUnitVectors(up, dv);
+      LEVELS.forEach((k, idx) => {
+        const v = k / FLOORS, c = center(v);
+        const th = Math.atan2(-dir[1], -dir[0]);
+        const r = radius(th, v) + 0.9;
+        const tip = [c[0] - dir[0] * r, v * H, c[1] - dir[1] * r];
+        const len = 0.8 + 3.4 * v;
+        const tail = [tip[0] - dir[0] * len, tip[1], tip[2] - dir[1] * len];
+        lines.push(...tail, tip[0] - dir[0] * 0.4, tip[1], tip[2] - dir[1] * 0.4);
+        env.push(tail);
+        m4.compose(new THREE.Vector3(tip[0] - dir[0] * 0.25, tip[1], tip[2] - dir[1] * 0.25), q, new THREE.Vector3(1, 1, 1));
+        cones.setMatrixAt(idx, m4);
+        if (idx === LEVELS.length - 1) loadTop.set(tail[0], tail[1], tail[2]);
+      });
+      for (let i = 0; i < env.length - 1; i++) lines.push(...env[i], ...env[i + 1]);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+      loadGroup.add(new THREE.LineSegments(g, loadLineMat), cones);
+    }
+
+    // Bending moment diagrams, drawn in the plane that faces the camera.
+    // Sign colours are OpenAnstruk 2D's own: positive blue, negative red.
+    const BMD = [
+      // Fixed-ended outrigger chords: hogging at both supports, sagging between.
+      { member: outriggerChords[0], fn: (s) => -1860 + 4 * (1860 + 740) * s * (1 - s), id: 'OT-24', unit: 'kN·m' },
+      { member: outriggerChords[1], fn: (s) => -2140 + 4 * (2140 + 860) * s * (1 - s), id: 'OT-48', unit: 'kN·m' },
+      // The crown cantilever under its own load: M = −w(L−x)²/2, all hogging, peak at the core.
+      { member: crownCantilever, fn: (s) => -3120 * (1 - s) * (1 - s), id: 'CB-64', unit: 'kN·m' },
+    ];
+    const BMD_N = 28, BMD_SCALE = 1 / 820;
+    const bmdPos = new THREE.MeshBasicMaterial({ color: new THREE.Color('#4c8dff').multiplyScalar(1.3), transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, depthTest: false });
+    const bmdNeg = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ff4d5e').multiplyScalar(1.3), transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, depthTest: false });
+    const bmdLine = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false });
+    for (const b of BMD) {
+      const mb = members[b.member];
+      b.A = new THREE.Vector3().fromArray(mb.a); b.B = new THREE.Vector3().fromArray(mb.b);
+      const mk = (mat) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(BMD_N * 6 * 3), 3)); const m = new THREE.Mesh(g, mat); m.frustumCulled = false; m.renderOrder = 8; ana.add(m); return m; };
+      b.pos = mk(bmdPos); b.neg = mk(bmdNeg);
+      const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array((BMD_N + 1) * 2 * 3 + 16 * 6), 3));
+      b.line = new THREE.LineSegments(lg, bmdLine); b.line.frustumCulled = false; b.line.renderOrder = 9; ana.add(b.line);
+      b.peaks = []; // filled per frame: screen anchors for the value labels
+    }
+    const _camLocal = new THREE.Vector3(), _n = new THREE.Vector3(), _ax = new THREE.Vector3(), _w = new THREE.Vector3(), _p = new THREE.Vector3(), _q = new THREE.Vector3();
+    function updateBMD() {
+      _camLocal.copy(camera.position); bld.worldToLocal(_camLocal);
+      for (const b of BMD) {
+        _ax.subVectors(b.B, b.A).normalize();
+        _w.addVectors(b.A, b.B).multiplyScalar(0.5); _w.subVectors(_camLocal, _w).normalize();
+        _n.crossVectors(_ax, _w).normalize();
+        const P = b.pos.geometry.attributes.position.array, Q = b.neg.geometry.attributes.position.array, L = b.line.geometry.attributes.position.array;
+        P.fill(0); Q.fill(0); L.fill(0);
+        let li = 0, maxV = -Infinity, minV = Infinity, maxS = 0, minS = 0;
+        for (let i = 0; i < BMD_N; i++) {
+          const s0 = i / BMD_N, s1 = (i + 1) / BMD_N, m0 = b.fn(s0), m1 = b.fn(s1);
+          const a0 = _p.lerpVectors(b.A, b.B, s0).clone(), a1 = _q.lerpVectors(b.A, b.B, s1).clone();
+          const t0 = a0.clone().addScaledVector(_n, m0 * BMD_SCALE), t1 = a1.clone().addScaledVector(_n, m1 * BMD_SCALE);
+          const arr = (m0 + m1) >= 0 ? P : Q, o = i * 18;
+          [a0, t0, a1, a1, t0, t1].forEach((v, k) => { arr[o + k * 3] = v.x; arr[o + k * 3 + 1] = v.y; arr[o + k * 3 + 2] = v.z; });
+          L.set([t0.x, t0.y, t0.z, t1.x, t1.y, t1.z], li); li += 6;
+          if (i % 3 === 0) { L.set([a0.x, a0.y, a0.z, t0.x, t0.y, t0.z], li); li += 6; }
+          if (m0 > maxV) { maxV = m0; maxS = s0; } if (m0 < minV) { minV = m0; minS = s0; }
+        }
+        const mEnd = b.fn(1); if (mEnd > maxV) { maxV = mEnd; maxS = 1; } if (mEnd < minV) { minV = mEnd; minS = 1; }
+        b.pos.geometry.attributes.position.needsUpdate = true; b.neg.geometry.attributes.position.needsUpdate = true;
+        b.line.geometry.attributes.position.needsUpdate = true; b.line.geometry.setDrawRange(0, li / 3);
+        b.peaks = [[maxS, maxV], [minS, minV]].map(([s, mv]) => ({ v: mv, p: new THREE.Vector3().lerpVectors(b.A, b.B, s).addScaledVector(_n, mv * BMD_SCALE * 1.18) }));
+      }
+    }
+
+    /* ── Build: the scan ─────────────────────────────────────────────── */
+    const scanDisk = new THREE.Mesh(new THREE.CircleGeometry(19, 120).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+      uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: `varying vec2 vP; void main() { vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: GLSL_COLOR + /* glsl */`
+        uniform vec3 uIce; uniform float uWake; varying vec2 vP;
+        void main() {
+          float r = length(vP);
+          float ang = atan(vP.y, vP.x) / 6.2831853;
+          float rings = gridLine(r, 1.0) * 0.35 + gridLine(r, 0.2) * 0.6;
+          float ticks = gridLine(ang, 144.0) * step(9.0, r) * step(r, 9.9);
+          float fall = exp(-r / 6.5);
+          float a = (0.04 + rings * 0.35 + ticks * 0.8) * fall * uWake;
+          gl_FragColor = vec4(uIce, a * 0.55);
+        }`,
+    }));
+    scanDisk.renderOrder = 6;
+    bld.add(scanDisk);
+
+    const SL_N = 160;
+    const sliceGeo = new THREE.BufferGeometry();
+    sliceGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((SL_N + 1) * 3), 3));
+    const sliceLine = new THREE.Line(sliceGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(0x9fe4ff).multiplyScalar(4), transparent: true, opacity: 0, depthWrite: false }));
+    sliceLine.frustumCulled = false; sliceLine.renderOrder = 7;
+    bld.add(sliceLine);
+    const coreSliceGeo = new THREE.BufferGeometry();
+    coreSliceGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(65 * 3), 3));
+    const coreSlice = new THREE.Line(coreSliceGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(0x9fe4ff).multiplyScalar(2.5), transparent: true, opacity: 0, depthWrite: false }));
+    coreSlice.frustumCulled = false;
+    bld.add(coreSlice);
+
+    // LiDAR returns: points on the skin that sparkle while the building is being "seen"
+    (() => {
+      const N = 26000, pos = new Float32Array(N * 3), seed = new Float32Array(N), t = [0, 0, 0];
+      for (let i = 0; i < N; i++) {
+        const r = Math.random();
+        if (r < 0.82) {
+          const v = Math.random() * V_TOP, th = Math.random() * TAU;
+          facadePt(th, v, t);
+          if (Math.random() < 0.5) { // snap half of them onto fin noses, so the returns trace the floors
+            const k = Math.max(1, Math.round(v * FLOORS)); const vv = k / FLOORS; facadePt(th, vv, t);
+            const c = center(vv), d = finShape(th, k)[0], len = Math.hypot(t[0] - c[0], t[2] - c[1]);
+            t[0] += ((t[0] - c[0]) / len) * d; t[2] += ((t[2] - c[1]) / len) * d;
+          }
+        } else canopyPt(Math.random(), Math.random() * TAU, t);
+        pos.set(t, i * 3); seed[i] = Math.random();
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+      const lidar = new THREE.Points(g, new THREE.ShaderMaterial({
+        uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        vertexShader: /* glsl */`
+          attribute float aSeed; uniform float uScan, uTime, uSparkle, uWake, uPx; varying float vA;
+          void main() {
+            float below = uScan - position.y;
+            float wake = below > 0.0 ? exp(-below / 1.3) * step(below, 5.0) : 0.0;
+            float flick = step(fract(aSeed * 91.7 + floor(uTime * 10.0 + aSeed * 17.0) * 0.618), 0.10);
+            vA = wake * uWake * 0.9 + flick * uSparkle * step(below, 0.0) * 0.8;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = vA < 0.01 ? 0.0 : uPx * (1.0 + wake);
+          }`,
+        fragmentShader: `uniform vec3 uIce; varying float vA; void main() { float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(uIce * 1.8, vA * (1.0 - d * 1.5)); }`,
+      }));
+      lidar.frustumCulled = false; lidar.renderOrder = 7;
+      bld.add(lidar);
+    })();
+
+    /* ── Ground, sky and light ───────────────────────────────────────── */
+    const groundMat = new THREE.ShaderMaterial({
+      uniforms: Object.assign({ uC: { value: new THREE.Vector2(center(0)[0], center(0)[1]) }, uBase: { value: lin('#070a10') }, uHorizon: { value: lin('#0a1018') }, uWarmG: { value: lin('#ffb36b') } }, { uAna: U.uAna, uIce: U.uIce }),
+      vertexShader: `varying vec3 vW; varying vec3 vL; void main() { vL = position; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+      fragmentShader: GLSL_COLOR + /* glsl */`
+        uniform vec2 uC; uniform vec3 uBase, uHorizon, uIce, uWarmG; uniform float uAna; varying vec3 vW; varying vec3 vL;
+        void main() {
+          vec2 p = vL.xz;                         // building-local, so the paving turns with the tower
+          float d = length(p - uC);
+          float ang = atan(p.y - uC.y, p.x - uC.x);
+          float warp = d * (1.0 + 0.07 * sin(3.0 * ang + d * 0.16));
+          float pave = gridLine(warp, 1.0 / 1.15) * smoothstep(42.0, 9.0, d) * smoothstep(4.0, 7.0, d);
+          float minor = max(gridLine(p.x, 1.0), gridLine(p.y, 1.0));
+          float major = max(gridLine(p.x, 0.2), gridLine(p.y, 0.2));
+          float grid = (0.22 * minor + 0.7 * major) * smoothstep(48.0, 5.0, d);
+          vec3 col = uBase * (1.0 - 0.6 * smoothstep(10.0, 3.5, d));
+          col += uIce * (pave * 0.045 * (1.0 - uAna) + grid * 0.085 * uAna);
+          col += uWarmG * 0.05 * exp(-max(d - 4.0, 0.0) / 5.0) * (1.0 - uAna);
+          col = mix(col, uHorizon, smoothstep(30.0, 150.0, length(vW.xz)));
+          gl_FragColor = vec4(col, mix(0.84, 1.0, smoothstep(9.0, 46.0, d)));
+        }`,
+    });
+    groundMat.transparent = true;
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), groundMat);
+    ground.position.y = -0.02;
+    ground.renderOrder = -2;
+    bld.add(ground);
+    const shadowCatcher = new THREE.Mesh(new THREE.PlaneGeometry(70, 70).rotateX(-Math.PI / 2), new THREE.ShadowMaterial({ opacity: 0.6, color: 0x000000 }));
+    shadowCatcher.receiveShadow = true;
+    shadowCatcher.renderOrder = -1;
+    shadowCatcher.position.y = 0.0;
+    scene.add(shadowCatcher);
+
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false,
+      uniforms: { uTop: { value: lin('#020408') }, uHorizon: { value: lin('#0a1018') }, uHaloDir: { value: new THREE.Vector3(0, 0.3, -1) }, uHalo: { value: lin('#1b2b40') } },
+      vertexShader: `varying vec3 vDir; void main() { vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }`,
+      fragmentShader: /* glsl */`
+        uniform vec3 uTop, uHorizon, uHaloDir, uHalo; varying vec3 vDir;
+        void main() {
+          vec3 d = normalize(vDir);
+          vec3 col = mix(uHorizon, uTop, smoothstep(-0.02, 0.5, d.y));
+          col += uHalo * pow(max(dot(d, normalize(uHaloDir)), 0.0), 5.0) * 0.5 * smoothstep(0.0, 0.18, d.y);
+          col = mix(col, uHorizon, smoothstep(0.02, -0.15, d.y));
+          gl_FragColor = vec4(col, 1.0);
+        }`,
+    });
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 48, 24), skyMat);
+    scene.add(sky);
+
+    // Environment for reflections: a dusk dome with three soft boxes, baked once.
+    {
+      const pm = new THREE.PMREMGenerator(renderer);
+      const envScene = new THREE.Scene();
+      envScene.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        vertexShader: `varying vec3 vD; void main() { vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+        fragmentShader: /* glsl */`varying vec3 vD; void main() { vec3 d = normalize(vD);
+          vec3 top = vec3(0.05, 0.09, 0.17), hor = vec3(0.32, 0.30, 0.33), low = vec3(0.012, 0.014, 0.02);
+          vec3 c = d.y > 0.0 ? mix(hor, top, pow(d.y, 0.55)) : mix(hor * 0.4, low, pow(-d.y, 0.4));
+          c += vec3(0.9, 0.55, 0.3) * pow(max(dot(d, normalize(vec3(-0.8, 0.12, 0.5))), 0.0), 24.0) * 1.5;
+          gl_FragColor = vec4(c, 1.0); }`,
+      })));
+      const box = (w, h, pos, col, k) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(k), side: THREE.DoubleSide })); m.position.copy(pos); m.lookAt(0, 0, 0); envScene.add(m); };
+      box(30, 14, new THREE.Vector3(-24, 26, 18), '#ffe6cc', 2.2);
+      box(6, 40, new THREE.Vector3(30, 8, -18), '#a8d4ff', 1.6);
+      box(40, 4, new THREE.Vector3(4, 40, -26), '#cfe3ff', 0.9);
+      scene.environment = pm.fromScene(envScene, 0.035).texture;
+      pm.dispose();
+    }
+
+    scene.add(new THREE.HemisphereLight(0x2a3a55, 0x050608, 0.9));
+    const key = new THREE.DirectionalLight(0xffe6cc, 3.1);
+    key.position.set(-22, 36, 40);
+    key.castShadow = true;
+    key.shadow.mapSize.set(isSmall() ? 1024 : 2048, isSmall() ? 1024 : 2048);
+    Object.assign(key.shadow.camera, { left: -24, right: 24, top: 26, bottom: -18, near: 10, far: 130 });
+    key.shadow.bias = -0.0004; key.shadow.normalBias = 0.03;
+    scene.add(key, key.target);
+    const rim = new THREE.DirectionalLight(0x86b8ff, 1.5);
+    rim.position.set(28, 22, -40);
+    const fill = new THREE.DirectionalLight(0x9fb6d6, 0.55);
+    fill.position.set(44, 8, 26);
+    scene.add(rim, fill);
+
+    /* ── Post-processing ─────────────────────────────────────────────── */
+    // MSAA on a half-float target is memory-hungry; on dense screens the pixels do most of the smoothing.
+    const rt = new THREE.WebGLRenderTarget(2, 2, { type: THREE.HalfFloatType, samples: dpr > 1.25 ? 2 : 4 });
+    const composer = new EffectComposer(renderer, rt);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.55, 0.55, 0.86);
+    composer.addPass(bloom);
+    composer.addPass(new OutputPass());
+    const finish = new ShaderPass({
+      uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) } },
+      vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: /* glsl */`
+        uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes; varying vec2 vUv;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+        void main() {
+          vec2 c = vUv - 0.5; float r2 = dot(c, c);
+          vec2 off = c * r2 * 0.006;
+          vec3 col = vec3(texture2D(tDiffuse, vUv + off).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - off).b);
+          col *= 1.0 - smoothstep(0.16, 0.72, r2) * 0.6;
+          col += (hash(vUv * uRes + fract(uTime) * 91.0) - 0.5) * 0.026;
+          gl_FragColor = vec4(col, 1.0);
+        }`,
+    });
+    composer.addPass(finish);
+
+    /* ════════════════════════════════════════════════════════════════════
+       4. HUD
+       ════════════════════════════════════════════════════════════════════ */
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    const hudSvg = $('hudSvg'), hudTags = $('hudTags');
+    const brPaths = hudSvg.querySelectorAll('#hudBracket .br');
+    const brTitle = $('brTitle'), brSub = $('brSub');
+    const scaleG = $('hudScale'), leaders = $('hudLeaders');
+    const elStatus = $('hudStatus'), elClock = $('hudClock'), elLog = $('hudLog'), elMat = $('hudMat');
+    const elTele = $('hudTele'), steps = [0, 1, 2, 3].map((i) => $('st' + i)), stepsEl = hud.querySelector('.steps-hud');
+    const lgTitle = $('lgTitle'), lgCase = $('lgCase'), lgTicks = $('lgTicks').children;
+    const slLabel = $('slLabel'), slE = $('slE');
+
+    // Legend bar: hard-stopped bands, the same twelve the shaders draw.
+    (function () {
+      const c = $('lgBar'), x = c.getContext('2d');
+      for (let i = 0; i < BANDS; i++) { x.fillStyle = bandCss((i + 0.5) / BANDS); x.fillRect(0, c.height - ((i + 1) * c.height) / BANDS, c.width, c.height / BANDS + 0.5); }
+    })();
+
+    // Load cases rotate each cycle, so a second viewing is not a rerun.
+    const CASES = [
+      { name: 'EQ-X', angle: 0, V: '38,412 kN', D: '612 mm', drift: '1/486', peak: 0.62 },
+      { name: 'EQ-Z', angle: Math.PI / 2, V: '36,980 kN', D: '655 mm', drift: '1/452', peak: 0.66 },
+      { name: 'WIND 45°', angle: Math.PI / 4, V: '21,206 kN', D: '401 mm', drift: '1/702', peak: 0.58 },
+    ];
+    let caseIx = -1, CASE = CASES[0];
+    function setCase(i) {
+      if (i === caseIx) return;
+      caseIx = i; CASE = CASES[i % CASES.length];
+      U.uLoadAngle.value = CASE.angle;
+      buildLoads(CASE.angle);
+      lgCase.textContent = CASE.name;
+      $('rdV').textContent = CASE.V; $('rdD').textContent = CASE.D; $('drMax').textContent = CASE.drift;
+      drawDrift();
+    }
+
+    // Storey drift profile, peaking at ~60 % of the height, against the h/400 limit.
+    function drawDrift() {
+      const svg = $('hudDrift'), W = 212, Hh = 104, lim = 0.0025, mx = 0.003;
+      const peakVal = 1 / parseFloat(CASE.drift.split('/')[1]);
+      let d = '', area = `M0 ${Hh}`;
+      for (let i = 0; i <= 36; i++) {
+        const v = i / 36, dr = peakVal * Math.pow(Math.sin(Math.PI * Math.pow(v, 0.9) * (0.5 / CASE.peak) * 0.98), 1.4);
+        const x = (Math.max(0, dr) / mx) * W, y = Hh - v * Hh;
+        d += (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+        area += 'L' + x.toFixed(1) + ' ' + y.toFixed(1);
+      }
+      area += `L0 0Z`;
+      const lx = (lim / mx) * W;
+      svg.innerHTML =
+        `<path d="M0 0V${Hh}H${W}" fill="none" stroke="rgba(160,200,240,.18)"/>` +
+        [0.25, 0.5, 0.75].map((f) => `<path d="M0 ${Hh * f}H${W}" stroke="rgba(160,200,240,.07)"/>`).join('') +
+        `<path d="M${lx} 0V${Hh}" stroke="#ff4d5e" stroke-opacity=".7" stroke-dasharray="2 3"/>` +
+        `<text x="${lx - 4}" y="10" text-anchor="end" fill="#ff8a94" style="font:8px var(--ff-mono)">h/400</text>` +
+        `<path d="${area}" fill="rgba(166,230,255,.10)"/>` +
+        `<path d="${d}" fill="none" stroke="#a6e6ff" stroke-width="1.2"/>`;
+    }
+
+    // The process log. Times are seconds into the cycle.
+    const LOG = [
+      [4.05, 'ingest', 'geometry · 2.41 M faces'],
+      [4.6, 'ai.read', 'envelope · 72 levels · 300 m'],
+      [5.5, 'ai.system', 'exo-diagrid + core + outriggers'],
+      [6.5, 'ai.infer', 'C70 core · S460 steel'],
+      [7.5, 'mesh', '186,402 elements'],
+      [8.5, 'ai.loads', 'D · L · EQx · EQz · 12 W'],
+      [9.45, 'assemble', 'K · nnz 41.8 M · SPD'],
+      [10.0, 'factor', 'LDL^T · fill 3.2x · 0.84 s'],
+      [10.6, 'solve', '12 cases · 18 combos'],
+      [11.2, 'p-delta', 'iter 4 · |r| 3.1e-9'],
+      [16.6, 'modal', 'Lanczos · 24 modes · 92.4%'],
+      [22.6, 'verify', 'SNI 1726 · ACI 318 · AISC'],
+      [24.0, 'verdict', '2,847 members · D/C 0.91'],
+    ];
+    let logShown = 0;
+    function pushLog(t, k, m) {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="ts">${t.toFixed(2).padStart(5, '0')}</span><span class="k">${k}</span><span class="m" style="--n:${m.length}">${m}</span>`;
+      elLog.appendChild(li);
+      while (elLog.children.length > 7) elLog.removeChild(elLog.firstChild);
+    }
+
+    // A 5×5 window into K: settles to a symmetric band once the solve completes.
+    const K_FINAL = [
+      [4.83e5, -1.21e5, 0, 3.06e4, 0],
+      [-1.21e5, 5.17e5, -1.18e5, 0, 2.94e4],
+      [0, -1.18e5, 4.96e5, -1.24e5, 0],
+      [3.06e4, 0, -1.24e5, 5.02e5, -1.19e5],
+      [0, 2.94e4, 0, -1.19e5, 4.88e5],
+    ];
+    const fmtE = (v) => (v === 0 ? '    0   ' : (v < 0 ? '-' : ' ') + Math.abs(v).toExponential(2).replace('e+', 'e'));
+    function drawMatrix(scramble) {
+      let s = '';
+      for (let i = 0; i < 5; i++) {
+        s += i === 0 ? '⎡' : i === 4 ? '⎣' : '⎢';
+        for (let j = 0; j < 5; j++) {
+          let v = K_FINAL[i][j];
+          if (scramble && v !== 0) v *= 0.6 + Math.random() * 0.8;
+          const txt = fmtE(v);
+          s += i === j ? `<b>${txt}</b>` : txt;
+        }
+        s += i === 0 ? '⎤\n' : i === 4 ? '⎦' : '⎥\n';
+      }
+      elMat.innerHTML = s;
+    }
+
+    // Sparsity pattern of K, with fill-in appearing as the factorisation sweeps down.
+    const spark = $('hudSpark'), sx = spark.getContext('2d'), SPN = 46;
+    const pattern = [];
+    for (let i = 0; i < SPN; i++) for (let j = 0; j <= i; j++) {
+      const d = i - j, blk = (i >= 30 && i <= 35 && j >= 6 && j <= 11) || (i >= 40 && j >= 20 && j <= 23);
+      if (d <= 3 || blk || ((i * 7 + j * 13) % 29 === 0 && d < 14)) pattern.push([i, j, d <= 3 ? 0 : blk ? 1 : 2]);
+    }
+    function drawSpark(progress) {
+      const r = devicePixelRatio || 1, W = 92;
+      if (spark.width !== W * r) { spark.width = W * r; spark.height = W * r; }
+      sx.setTransform(r, 0, 0, r, 0, 0);
+      sx.clearRect(0, 0, W, W);
+      sx.strokeStyle = 'rgba(160,200,240,.18)'; sx.strokeRect(0.5, 0.5, W - 1, W - 1);
+      const c = (W - 4) / SPN, kf = progress * SPN;
+      for (const [i, j, kind] of pattern) {
+        const done = i < kf;
+        sx.fillStyle = kind === 0 ? (done ? '#a6e6ff' : 'rgba(166,230,255,.45)') : kind === 1 ? (done ? '#ffd23f' : 'rgba(255,210,63,.4)') : 'rgba(160,200,240,.35)';
+        sx.fillRect(2 + j * c, 2 + i * c, c - 0.6, c - 0.6);
+        if (i !== j) sx.fillRect(2 + i * c, 2 + j * c, c - 0.6, c - 0.6);
+      }
+      if (progress > 0 && progress < 1) { // fill-in inside the profile, plus the sweep line
+        sx.fillStyle = 'rgba(255,122,47,.55)';
+        for (let i = 4; i < kf; i++) for (let j = Math.max(0, i - 7); j < i - 3; j++) if ((i + j) % 3 === 0) sx.fillRect(2 + j * c, 2 + i * c, c - 0.6, c - 0.6);
+        sx.fillStyle = 'rgba(166,230,255,.9)'; sx.fillRect(2, 2 + kf * c, W - 4, 1);
+      }
+    }
+
+    // Residual convergence of the P-Delta iteration, on a log scale.
+    const resid = $('hudResid'), rx = resid.getContext('2d');
+    const RES = [0, -1.7, -3.2, -4.9, -6.5, -7.4, -8.5];
+    function drawResid(n) {
+      const r = devicePixelRatio || 1, W = resid.clientWidth || 160, Hh = 40;
+      if (resid.width !== Math.round(W * r)) { resid.width = Math.round(W * r); resid.height = Hh * r; }
+      rx.setTransform(r, 0, 0, r, 0, 0); rx.clearRect(0, 0, W, Hh);
+      rx.strokeStyle = 'rgba(160,200,240,.14)'; rx.beginPath(); rx.moveTo(0, Hh - 0.5); rx.lineTo(W, Hh - 0.5); rx.stroke();
+      rx.fillStyle = '#5c6a7c'; rx.font = '7.5px "Martian Mono", monospace'; rx.fillText('‖r‖', 0, 8);
+      const pts = RES.slice(0, Math.max(1, Math.ceil(n))).map((v, i) => [24 + (i / 6) * (W - 30), 4 + (-v / 8.5) * (Hh - 10)]);
+      rx.strokeStyle = '#a6e6ff'; rx.lineWidth = 1; rx.beginPath();
+      pts.forEach(([x, y], i) => (i ? rx.lineTo(x, y) : rx.moveTo(x, y))); rx.stroke();
+      rx.fillStyle = '#a6e6ff'; pts.forEach(([x, y]) => rx.fillRect(x - 1.2, y - 1.2, 2.4, 2.4));
+    }
+
+    // The plan cut at the scan height: envelope coloured by stress, core, columns,
+    // and the eccentricity between the centre of mass and the centre of rigidity.
+    const slice = $('hudSlice'), slx = slice.getContext('2d');
+    function drawSlice(v) {
+      const r = devicePixelRatio || 1, W = slice.clientWidth || 212, Hh = slice.clientHeight || 128;
+      if (slice.width !== Math.round(W * r)) { slice.width = Math.round(W * r); slice.height = Math.round(Hh * r); }
+      slx.setTransform(r, 0, 0, r, 0, 0); slx.clearRect(0, 0, W, Hh);
+      const vv = Math.min(Math.max(v, 0.002), V_TOP), c = center(vv), sc = Math.min(W / 13, Hh / 9.5), ox = W / 2, oy = Hh / 2;
+      const X = (x) => ox + (x - c[0]) * sc, Y = (z) => oy + (z - c[1]) * sc;
+      slx.strokeStyle = 'rgba(160,200,240,.10)'; slx.lineWidth = 1;
+      for (let gx = -6; gx <= 6; gx += 2) { slx.beginPath(); slx.moveTo(ox + gx * sc, 0); slx.lineTo(ox + gx * sc, Hh); slx.stroke(); }
+      for (let gz = -4; gz <= 4; gz += 2) { slx.beginPath(); slx.moveTo(0, oy + gz * sc); slx.lineTo(W, oy + gz * sc); slx.stroke(); }
+      const t = [0, 0, 0], t2 = [0, 0, 0], N = 96;
+      slx.lineWidth = 2;
+      for (let j = 0; j < N; j++) {
+        facadePt((TAU * j) / N, vv, t); facadePt((TAU * (j + 1)) / N, vv, t2);
+        const s = Math.abs(sigmaAt(t[0], t[1], t[2], U.uLoadAngle.value, 1)) / 52;
+        slx.strokeStyle = bandCss(s); slx.beginPath(); slx.moveTo(X(t[0]), Y(t[2])); slx.lineTo(X(t2[0]), Y(t2[2])); slx.stroke();
+      }
+      if (vv < CORE.top) {
+        slx.strokeStyle = 'rgba(166,230,255,.8)'; slx.lineWidth = 1; slx.beginPath();
+        for (let j = 0; j <= 48; j++) { corePt((TAU * j) / 48, vv, t); j ? slx.lineTo(X(t[0]), Y(t[2])) : slx.moveTo(X(t[0]), Y(t[2])); }
+        slx.stroke();
+      }
+      slx.fillStyle = 'rgba(232,238,245,.85)';
+      for (let j = 0; j < NCOL; j++) { columnPt(j, vv, t); slx.fillRect(X(t[0]) - 1.5, Y(t[2]) - 1.5, 3, 3); }
+      const cc = coreCenter(vv), cr = [lerp(cc[0], c[0], 0.35) - 0.25, lerp(cc[1], c[1], 0.35) + 0.15];
+      slx.strokeStyle = '#ffd23f'; slx.lineWidth = 1;
+      slx.beginPath(); slx.moveTo(X(c[0]) - 4, Y(c[1])); slx.lineTo(X(c[0]) + 4, Y(c[1])); slx.moveTo(X(c[0]), Y(c[1]) - 4); slx.lineTo(X(c[0]), Y(c[1]) + 4); slx.stroke();
+      slx.beginPath(); slx.arc(X(cr[0]), Y(cr[1]), 3, 0, TAU); slx.stroke();
+      slx.setLineDash([2, 2]); slx.beginPath(); slx.moveTo(X(c[0]), Y(c[1])); slx.lineTo(X(cr[0]), Y(cr[1])); slx.stroke(); slx.setLineDash([]);
+      slx.fillStyle = '#ffd23f'; slx.font = '7.5px "Martian Mono", monospace';
+      slx.fillText('CM', X(c[0]) + 5, Y(c[1]) - 4); slx.fillText('CR', X(cr[0]) + 5, Y(cr[1]) + 9);
+      const lvl = Math.round(vv * FLOORS);
+      slLabel.textContent = `Section · L${String(lvl).padStart(2, '0')} · +${(vv * 300).toFixed(1)} m`;
+      slE.textContent = `e ${(Math.hypot(c[0] - cr[0], c[1] - cr[1]) * 10).toFixed(1)} m`;
+    }
+
+    // Elevation scale beside the tower
+    const scaleLevels = [];
+    for (let k = 0; k <= FLOORS; k += 6) {
+      const g = document.createElementNS(SVGNS, 'g');
+      const ln = document.createElementNS(SVGNS, 'line');
+      ln.setAttribute('stroke', 'rgba(166,230,255,.55)');
+      g.appendChild(ln);
+      let tx = null;
+      if (k % 24 === 0) { tx = document.createElementNS(SVGNS, 'text'); tx.textContent = `L${String(k).padStart(2, '0')} +${(k * 300 / FLOORS).toFixed(0)}`; tx.setAttribute('text-anchor', 'end'); g.appendChild(tx); }
+      scaleG.appendChild(g);
+      scaleLevels.push({ k, ln, tx });
+    }
+    const spine = document.createElementNS(SVGNS, 'line'); spine.setAttribute('stroke', 'rgba(166,230,255,.35)'); scaleG.appendChild(spine);
+
+    // Tags: AI detections during the scan, then results. Anchors are building-local.
+    const tmp3 = [0, 0, 0];
+    const TAGS = [
+      { kind: 'det', label: 'RC CORE', conf: 0.99, at: () => corePt(CORE.rot + 2.4, 0.3, [0, 0, 0]), from: 5.2 + 4.2 * 0.31, to: 11.6 },
+      { kind: 'det', label: 'SHELL CANOPY', conf: 0.98, at: () => canopyPt(0.62, Math.PI / 2, [0, 0, 0]), from: 5.6, to: 11.6 },
+      { kind: 'det', label: 'OUTRIGGER · L24', conf: 0.97, at: () => facadePt(CORE.rot + TAU / 8, 25 / FLOORS, [0, 0, 0]), from: 5.2 + 4.2 * 0.38, to: 11.6 },
+      { kind: 'det', label: 'EXOSKELETON DIAGRID', conf: 0.99, at: () => exoPt(3, 1, 0.5, 0.15, [0, 0, 0]), from: 5.2 + 4.2 * 0.52, to: 11.6 },
+      { kind: 'det', label: 'OUTRIGGER · L48', conf: 0.96, at: () => facadePt(CORE.rot + (5 * TAU) / 8, 49 / FLOORS, [0, 0, 0]), from: 5.2 + 4.2 * 0.7, to: 11.6 },
+      { kind: 'det', label: 'CANTILEVER CROWN', conf: 0.93, at: () => facadePt(0.2, 0.9, [0, 0, 0]), from: 5.2 + 4.2 * 0.9, to: 11.6 },
+      { kind: 'res', label: () => { const p = exoPt(7, 1, 0.44, 0.14, tmp3); return `σ ${sigmaAt(p[0], p[1], p[2], U.uLoadAngle.value, 1).toFixed(1)} MPa`; }, sub: 'D-0417 · diagrid', at: () => exoPt(7, 1, 0.44, 0.14, [0, 0, 0]), from: 11.6, to: 22.3 },
+      { kind: 'res', label: () => { const mb = members[outriggerChords[0]]; const p = mb.b; return `N ${Math.round(sigmaAt(p[0], p[1], p[2], U.uLoadAngle.value, 1) * 400).toLocaleString('en-US')} kN`; }, sub: 'OT-24 · outrigger', at: () => members[outriggerChords[0]].b, from: 11.9, to: 22.3 },
+      { kind: 'res', label: () => `δ ${Math.round(Math.abs(U.uSway.value) * 470 + Math.abs(U.uTorsion.value) * 1900)} mm`, sub: 'roof · ×20', at: () => facadePt(1.6, 0.97, [0, 0, 0]), from: 16.6, to: 22.3 },
+      { kind: 'load', label: () => `${CASE.name} · V ${CASE.V}`, sub: 'storey forces', at: () => loadTop.toArray(), from: 11.2, to: 16.4 },
+    ];
+    for (const b of BMD) {
+      TAGS.push({ kind: 'res', label: b.id, sub: 'bending', at: () => [(b.A.x + b.B.x) / 2, (b.A.y + b.B.y) / 2, (b.A.z + b.B.z) / 2], from: 12.6, to: 16.4, bmdOwner: b });
+      for (let p = 0; p < 2; p++) TAGS.push({ kind: 'bmd', peakOf: b, peak: p, from: 12.8, to: 16.4 });
+    }
+    for (const tg of TAGS) {
+      tg.el = document.createElement('div');
+      tg.el.className = 'tag ' + tg.kind;
+      hudTags.appendChild(tg.el);
+      if (tg.kind !== 'bmd') {
+        tg.line = document.createElementNS(SVGNS, 'polyline');
+        tg.line.setAttribute('fill', 'none');
+        tg.line.setAttribute('stroke', tg.kind === 'det' ? 'rgba(255,210,63,.7)' : tg.kind === 'load' ? 'rgba(11,231,126,.8)' : 'rgba(166,230,255,.7)');
+        tg.dot = document.createElementNS(SVGNS, 'rect');
+        tg.dot.setAttribute('fill', 'none'); tg.dot.setAttribute('stroke', tg.line.getAttribute('stroke'));
+        leaders.append(tg.line, tg.dot);
+      }
+      tg.side = 0;
+    }
+
+    const _s = new THREE.Vector3();
+    let VW = 1, VH = 1;
+    function toScreen(x, y, z, out) {
+      _s.set(x, y, z).applyMatrix4(bld.matrixWorld).project(camera);
+      out[0] = (_s.x * 0.5 + 0.5) * VW; out[1] = (-_s.y * 0.5 + 0.5) * VH; out[2] = _s.z;
+      return out;
+    }
+    // JS twin of the vertex shader's deformAt(), so labels ride the deformed model
+    function deformJS(p) {
+      const v = clamp01(p[1] / H); prof(PROF_A, v, _pa);
+      const phi = v * v * (1.5 - 0.5 * v), ang = U.uTorsion.value * v, c = Math.cos(ang), s = Math.sin(ang);
+      const rx = p[0] - _pa[0], rz = p[2] - _pa[1], a = U.uLoadAngle.value, sw = U.uSway.value * phi;
+      return [_pa[0] + c * rx - s * rz + Math.cos(a) * sw, p[1], _pa[1] + s * rx + c * rz + Math.sin(a) * sw];
+    }
+
+    const sp = [0, 0, 0];
+    // Silhouette samples: the tower alone frames the bracket; the canopy may spill out.
+    const silhouette = [];
+    for (let i = 0; i <= 12; i++) for (let j = 0; j < 20; j++) silhouette.push(facadePt((TAU * j) / 20, Math.min((i / 12) * 1.0, 0.999), [0, 0, 0]));
+
+    const NAV_CLEAR = 112; // keep HUD text below the navigation bar
+    const placed = { L: [], R: [] };
+    function stack(list, top, bottom) {
+      // Each callout sits as close to its anchor's height as its neighbours allow.
+      list.sort((p, q) => p.want - q.want);
+      let y = top;
+      for (const it of list) { it.y = Math.max(it.want, y); y = it.y + it.h + 8; }
+      y = bottom;
+      for (let i = list.length - 1; i >= 0; i--) { const it = list[i]; it.y = Math.min(it.y, y - it.h); y = it.y - 8; }
+    }
+
+    function updateHUD(t, phase) {
+      if (phase === 'arch' || VW <= 980) return; // phones get the model and the status line, not the drawing
+
+      // Bracket around the tower's projected silhouette, locking on during boot.
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const p of silhouette) {
+        toScreen(p[0], p[1], p[2], sp);
+        if (sp[0] < x0) x0 = sp[0]; if (sp[0] > x1) x1 = sp[0];
+        if (sp[1] < y0) y0 = sp[1]; if (sp[1] > y1) y1 = sp[1];
+      }
+      const tx0 = x0, tx1 = x1; // tower edges, before padding
+      const lock = 1 - easeIO(clamp01((t - 4.0) / 1.0));
+      const pad = 18 + lock * 80, arm = 16;
+      x0 = Math.max(x0 - pad, 8); y0 = Math.max(y0 - pad, NAV_CLEAR - 24); x1 = Math.min(x1 + pad, VW - 8); y1 = Math.min(y1 + pad, VH - 52);
+      const P = [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]];
+      P.forEach(([x, y, sx2, sy2], i) => brPaths[i].setAttribute('d', `M${(x + sx2 * arm).toFixed(1)} ${y.toFixed(1)}H${x.toFixed(1)}V${(y + sy2 * arm).toFixed(1)}`));
+      const verified = phase === 'verify';
+      brTitle.textContent = verified ? 'VERIFIED · MAX D/C 0.91 · PASS' : 'STUDY MODEL · FREE-FORM TOWER';
+      brTitle.setAttribute('fill', verified ? '#5ff0b6' : '#e8eef5');
+      // Title block under the bracket, like a drawing sheet's, unless it would
+      // run into the step bar; then it moves above the bracket.
+      const titleW = Math.max(brTitle.getComputedTextLength(), brSub.getComputedTextLength());
+      const stepsLeft = stepsEl.getBoundingClientRect().left - hero.getBoundingClientRect().left;
+      const below = x0 + titleW + 16 < stepsLeft && y1 + 34 < VH - 8;
+      const ty = below ? y1 + 18 : y0 - 22;
+      brTitle.setAttribute('x', x0); brTitle.setAttribute('y', ty);
+      brSub.setAttribute('x', x0); brSub.setAttribute('y', ty + 12);
+
+      // Elevation scale, between the bracket and the tower's left edge
+      const scaleX = Math.max(tx0 - 10, 64);
+      let yTop = 0, yBot = 0;
+      for (const L of scaleLevels) {
+        const c = center(Math.min(L.k / FLOORS, 0.999));
+        toScreen(c[0], L.k * FH, c[1], sp);
+        const major = L.k % 24 === 0;
+        L.ln.setAttribute('x1', scaleX - (major ? 9 : 4)); L.ln.setAttribute('x2', scaleX); L.ln.setAttribute('y1', sp[1]); L.ln.setAttribute('y2', sp[1]);
+        if (L.tx) { L.tx.setAttribute('x', scaleX - 13); L.tx.setAttribute('y', sp[1] + 3); }
+        if (L.k === 0) yBot = sp[1]; if (L.k === FLOORS) yTop = sp[1];
+      }
+      spine.setAttribute('x1', scaleX); spine.setAttribute('x2', scaleX); spine.setAttribute('y1', yTop); spine.setAttribute('y2', yBot);
+
+      // Callouts: anchored in 3D, laid out in two columns outside the tower
+      const axisX = (tx0 + tx1) / 2;
+      _camLocal.copy(camera.position); bld.worldToLocal(_camLocal);
+      placed.L.length = 0; placed.R.length = 0;
+      for (const tg of TAGS) {
+        let a = env(t, tg.from, tg.from + 0.45, tg.to - 0.45, tg.to);
+        if (tg.kind === 'bmd') {
+          const pk = tg.peakOf.peaks[tg.peak];
+          if (a <= 0.001 || !pk) { tg.el.style.opacity = 0; continue; }
+          toScreen(pk.p.x, pk.p.y, pk.p.z, sp);
+          const v = pk.v, txt = `${v >= 0 ? '+' : '−'}${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
+          if (tg._txt !== txt) { tg.el.textContent = txt; tg._txt = txt; tg.el.className = 'tag bmd ' + (v >= 0 ? 'pos' : 'neg'); }
+          tg.el.style.opacity = a * (tg.peakOf.vis ?? 1);
+          tg.el.style.transform = `translate(${(sp[0] + 6).toFixed(1)}px, ${(sp[1] - 6).toFixed(1)}px)`;
+          continue;
+        }
+        if (a <= 0.001) { tg.el.style.opacity = 0; tg.line.setAttribute('points', ''); tg.dot.setAttribute('width', 0); continue; }
+        const anchor = deformJS(tg.at());
+        const c = center(clamp01(anchor[1] / H));
+        const facing = (anchor[0] - c[0]) * (_camLocal.x - c[0]) + (anchor[2] - c[1]) * (_camLocal.z - c[1]);
+        const vis = facing >= 0 ? 1 : 0.32;
+        if (tg.bmdOwner) tg.bmdOwner.vis = vis;
+        toScreen(anchor[0], anchor[1], anchor[2], sp);
+        const label = typeof tg.label === 'function' ? tg.label() : tg.label;
+        const html = tg.kind === 'det' ? `<small>detected</small>${label} <b>${tg.conf.toFixed(2)}</b>` : `<small>${tg.sub}</small>${label}`;
+        if (tg._html !== html) { tg.el.innerHTML = html; tg._html = html; tg._w = tg.el.offsetWidth; tg._h = tg.el.offsetHeight; }
+        const it = { tg, ax: sp[0], ay: sp[1], a: a * vis, h: tg._h || 30, w: tg._w || 110, want: sp[1] - (tg._h || 30) / 2 };
+        (sp[0] >= axisX ? placed.R : placed.L).push(it);
+      }
+      const bottom = VH - 120;
+      stack(placed.R, NAV_CLEAR, bottom); stack(placed.L, NAV_CLEAR, bottom);
+      const colR = tx1 + 30, colL = scaleX - 64;
+      for (const side of ['L', 'R']) for (const it of placed[side]) {
+        const { tg } = it, right = side === 'R';
+        const bx = right ? colR : colL - it.w, my = it.y + it.h / 2, edge = right ? colR - 4 : colL + 4, elbow = right ? edge - 10 : edge + 10;
+        tg.el.style.opacity = it.a;
+        tg.el.style.transform = `translate(${bx.toFixed(1)}px, ${it.y.toFixed(1)}px)`;
+        tg.line.setAttribute('points', `${it.ax.toFixed(1)},${it.ay.toFixed(1)} ${elbow.toFixed(1)},${my.toFixed(1)} ${edge.toFixed(1)},${my.toFixed(1)}`);
+        tg.line.setAttribute('stroke-opacity', it.a);
+        const box = tg.kind === 'det' ? 8 : 2.5;
+        tg.dot.setAttribute('x', (it.ax - box).toFixed(1)); tg.dot.setAttribute('y', (it.ay - box).toFixed(1));
+        tg.dot.setAttribute('width', box * 2); tg.dot.setAttribute('height', box * 2);
+        tg.dot.setAttribute('stroke-opacity', it.a);
+      }
+    }
+
+    // Text and canvases that change at phase boundaries or a few times a second
+    let lastPhase = '', lastCycle = -1, lastSlow = 0, lastSlicePhase = '';
+    const PHASE_STATUS = {
+      arch: 'Standby', boot: 'AI · reading geometry', scan: 'Scanning', solve: 'Solving · K u = F',
+      static: 'Results', modal: 'Modal', verify: 'Verified · 2,847 members', return: 'Restoring view',
+    };
+    function updateHUDText(t, phase, cycle, now) {
+      if (cycle !== lastCycle) { lastCycle = cycle; elLog.innerHTML = ''; logShown = 0; setCase(cycle); }
+      if (phase !== lastPhase) { hud.dataset.phase = phase; lastPhase = phase; }
+      while (logShown < LOG.length && t >= LOG[logShown][0]) { pushLog(LOG[logShown][0], LOG[logShown][1], LOG[logShown][2]); logShown++; }
+
+      let status = PHASE_STATUS[phase];
+      if (phase === 'scan') status = `Scanning · ${Math.round(clamp01((t - 5.2) / 4.2) * 100)} %`;
+      if (phase === 'static') status = `Results · ${CASE.name}`;
+      if (phase === 'modal') status = t < 19.5 ? 'Mode 1 · T 6.21 s' : 'Mode 3 · torsion · T 3.04 s';
+      if (elStatus.textContent !== status) elStatus.textContent = status;
+      $('md1').classList.toggle('on', phase === 'modal' && t < 19.5);
+      $('md3').classList.toggle('on', phase === 'modal' && t >= 19.5);
+
+      // Legend follows the quantity on screen
+      const map = phase === 'verify' ? 'dc' : phase === 'modal' ? 'u' : 's';
+      if (lgTitle.dataset.map !== map) {
+        lgTitle.dataset.map = map;
+        lgTitle.textContent = map === 'dc' ? 'Utilisation · D/C' : map === 'u' ? '|u| · mm · ×20' : 'σ eq · MPa';
+        const ticks = map === 'dc' ? ['1.00', '0.75', '0.50', '0.25', '0.00'] : map === 'u' ? ['612', '459', '306', '153', '0'] : ['52.0', '39.0', '26.0', '13.0', '0.0'];
+        for (let i = 0; i < 5; i++) lgTicks[i].textContent = ticks[i];
+      }
+
+      // Steps: Read → Solve → Reveal → Verify
+      const prog = [clamp01((t - 4) / 5.4), clamp01((t - 9.4) / 1.6), clamp01((t - 11) / 11.5), clamp01((t - 22.5) / 3.5)];
+      const backToZero = phase === 'arch';
+      steps.forEach((el, i) => {
+        const p = backToZero ? 0 : prog[i];
+        el.style.setProperty('--p', p.toFixed(3));
+        el.classList.toggle('on', p > 0 && p < 1);
+        el.classList.toggle('done', p >= 1);
+      });
+
+      const solving = t >= 9.4 && t < 11.2;
+      if (now - lastSlow > (solving ? 70 : 250)) {
+        lastSlow = now;
+        elClock.textContent = `${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+        if (phase !== 'arch') {
+          drawMatrix(solving);
+          drawSpark(clamp01((t - 9.6) / 1.2));
+          drawResid(t < 11.2 ? 1 : 1 + (t - 11.2) / 0.08);
+          const az = ((bld.rotation.y * 180) / Math.PI) % 360;
+          elTele.textContent = `AZ ${((az + 360) % 360).toFixed(1).padStart(5, '0')}° · EL ${((camEl * 180) / Math.PI).toFixed(1).padStart(4, '0')}° · LIVE`;
+        }
+      }
+      if (phase === 'scan') drawSlice(clamp01(U.uScan.value / H));
+      else if (phase !== lastSlicePhase && (phase === 'solve' || phase === 'static')) drawSlice(37 / FLOORS);
+      lastSlicePhase = phase;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       5. TIMELINE AND LOOP
+       ════════════════════════════════════════════════════════════════════ */
+    const CYCLE = 34;
+    const PHASES = [['arch', 0], ['boot', 4.0], ['scan', 5.2], ['solve', 9.4], ['static', 11.0], ['modal', 16.5], ['verify', 22.5], ['return', 26.5], ['arch', 30.0]];
+    const phaseAt = (t) => { let p = 'arch'; for (const [id, t0] of PHASES) if (t >= t0) p = id; return p; };
+    const SCAN_LO = -0.6, SCAN_HI = H + 1.4;
+
+    let camEl = 0.05, fps = 60;
+    const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+    let spin = 0, spinVel = 0, dragging = false, lastX = 0;
+
+    function applyState(t, T) {
+      // Scan height
+      let scan = SCAN_LO;
+      if (t >= 5.2 && t < 9.4) scan = lerp(SCAN_LO, SCAN_HI, easeIO((t - 5.2) / 4.2));
+      else if (t >= 9.4 && t < 26.5) scan = SCAN_HI;
+      else if (t >= 26.5 && t < 30) scan = lerp(SCAN_HI, SCAN_LO, easeIO((t - 26.5) / 3.5));
+      U.uScan.value = scan;
+      U.uWake.value = env(t, 5.1, 5.4, 9.3, 9.7) + env(t, 26.4, 26.7, 29.8, 30.2);
+      U.uSparkle.value = env(t, 3.9, 4.3, 9.0, 9.6);
+      U.uAna.value = clamp01((scan - SCAN_LO) / (SCAN_HI - SCAN_LO));
+
+      // Loads, deflection and modes
+      const stat = 0.32 * env(t, 11.0, 12.0, 16.0, 16.8);
+      const m1 = Math.sin((TAU * (t - 16.5)) / 1.55) * 1.05 * env(t, 16.5, 17.1, 19.0, 19.6);
+      const m3 = Math.sin((TAU * (t - 19.5)) / 1.1) * 0.11 * env(t, 19.5, 20.0, 22.0, 22.5);
+      U.uSway.value = stat + m1;
+      U.uTorsion.value = m3;
+      U.uModeAmp.value.set(stat + 1.05 * env(t, 16.5, 17.1, 19.0, 19.6), 0.11 * env(t, 19.5, 20.0, 22.0, 22.5));
+      U.uLoadAmp.value = 1;
+      const wU = env(t, 16.6, 17.2, 22.1, 22.6), wD = env(t, 22.5, 23.1, 26.6, 27.4);
+      U.uMapW.value.set(1 - wU - wD, wU, wD);
+      U.uGhost.value = wU;
+      ghostLines.material.opacity = 0.16 * wU;
+      const loadA = env(t, 11.1, 11.7, 16.0, 16.5);
+      loadMat.opacity = loadA; loadLineMat.opacity = loadA * 0.9;
+      const bA = env(t, 12.4, 13.1, 16.0, 16.5);
+      bmdPos.opacity = bA * 0.55; bmdNeg.opacity = bA * 0.55; bmdLine.opacity = bA * 0.95;
+
+      // Scan visuals
+      const sv = clamp01((scan + 0.4) / H) * V_TOP;
+      scanDisk.position.set(center(sv)[0], scan, center(sv)[1]);
+      scanDisk.visible = U.uWake.value > 0.01;
+      const showSlice = U.uWake.value > 0.01 && scan > 0 && scan < H;
+      sliceLine.material.opacity = U.uWake.value; coreSlice.material.opacity = U.uWake.value * (sv < CORE.top ? 1 : 0);
+      sliceLine.visible = coreSlice.visible = showSlice;
+      if (showSlice) {
+        const a = sliceGeo.attributes.position.array, b = coreSliceGeo.attributes.position.array, v = clamp01(scan / H);
+        for (let j = 0; j <= SL_N; j++) { facadePt((TAU * j) / SL_N, Math.min(v, 0.999), tmp3); a.set([tmp3[0], scan + 0.02, tmp3[2]], j * 3); }
+        for (let j = 0; j <= 64; j++) { corePt((TAU * j) / 64, Math.min(v, CORE.top), tmp3); b.set([tmp3[0], scan + 0.02, tmp3[2]], j * 3); }
+        sliceGeo.attributes.position.needsUpdate = true; coreSliceGeo.attributes.position.needsUpdate = true;
+      }
+
+      arch.visible = mirror.visible = scan < SCAN_HI - 0.05;
+      ana.visible = anaMirror.visible = scan > SCAN_LO + 0.05;
+      shadowCatcher.material.opacity = 0.6 - 0.35 * U.uAna.value;
+      U.uTime.value = T;
+      finish.uniforms.uTime.value = T;
+
+      // Building rotation: slow, plus whatever the visitor flicks in
+      bld.rotation.y = -0.6 + T * 0.07 + spin;
+    }
+
+    function layout() {
+      const r = hero.getBoundingClientRect();
+      VW = Math.max(1, r.width); VH = Math.max(1, r.height);
+      renderer.setPixelRatio(dpr);
+      renderer.setSize(VW, VH, false);
+      composer.setPixelRatio(dpr);
+      composer.setSize(VW, VH);
+      finish.uniforms.uRes.value.set(VW * dpr, VH * dpr);
+      U.uPx.value = 1.6 * dpr;
+      camera.aspect = VW / VH;
+      camera.updateProjectionMatrix();
+    }
+
+    const _top = new THREE.Vector3(), _bot = new THREE.Vector3();
+    function updateCamera(t) {
+      const small = VW <= 980;
+      const anaMix = smooth(4.4, 9.4, t) * (1 - smooth(26.5, 30, t));
+      pointer.x += (pointer.tx - pointer.x) * 0.04; pointer.y += (pointer.ty - pointer.y) * 0.04;
+      // Architecture is shot level from across the plaza, like a photograph.
+      // Analysis rises to a 14° model view, the way an engineer inspects it.
+      camEl = lerp(0.0, 0.25, anaMix) + pointer.y * 0.02;
+      const az = 0.75 + pointer.x * 0.06;
+      const tanH = Math.tan((camera.fov * Math.PI) / 360);
+      const frac = small ? 0.42 : 0.7;          // share of the viewport height the tower fills
+      let dist = H / (2 * tanH * frac);
+      if (camera.aspect < 1) dist = Math.max(dist, 10 / (2 * tanH * camera.aspect * 0.86));
+      dist *= lerp(1.0, 1.08, anaMix);
+      const look = lerp(2.5, 14, anaMix);
+      camera.position.set(Math.sin(az) * Math.cos(camEl) * dist, look + Math.sin(camEl) * dist, Math.cos(az) * Math.cos(camEl) * dist);
+      camera.lookAt(0, look, 0);
+      camera.clearViewOffset();
+      camera.updateMatrixWorld();
+      // Lens shift, the architectural photographer's trick: move the frame, not
+      // the camera, so verticals stay vertical while the tower sits where the
+      // layout wants it, right of the headline on desktop, above it on phones.
+      bld.updateMatrixWorld(true);
+      const c0 = center(0), c1 = center(1);
+      _bot.set(c0[0], 0, c0[1]).applyMatrix4(bld.matrixWorld).project(camera);
+      _top.set(c1[0], H, c1[1]).applyMatrix4(bld.matrixWorld).project(camera);
+      const goalX = small ? 0 : 0.17, goalY = small ? 0.33 : -0.03;
+      camera.setViewOffset(VW, VH, (((_bot.x + _top.x) / 2) - goalX) * VW / 2, (goalY - (_bot.y + _top.y) / 2) * VH / 2, VW, VH);
+      skyMat.uniforms.uHaloDir.value.set(-camera.position.x, 15 - camera.position.y, -camera.position.z).normalize();
+    }
+
+    // Pointer: gentle parallax, and drag to spin the tower
+    hero.addEventListener('pointermove', (e) => {
+      const r = hero.getBoundingClientRect();
+      pointer.tx = ((e.clientX - r.left) / r.width - 0.5) * 2; pointer.ty = ((e.clientY - r.top) / r.height - 0.5) * 2;
+      if (dragging) { spinVel = (e.clientX - lastX) * 0.004; spin += spinVel; lastX = e.clientX; }
+    });
+    hero.addEventListener('pointerleave', () => { pointer.tx = pointer.ty = 0; });
+    hero.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('a, button, .hero-copy')) return;
+      dragging = true; lastX = e.clientX; hero.classList.add('is-dragging');
+    });
+    const endDrag = () => { dragging = false; hero.classList.remove('is-dragging'); };
+    addEventListener('pointerup', endDrag);
+    addEventListener('pointercancel', endDrag); // a touch that turns into a page scroll
+
+    // Only spend frames while the hero is on screen and the tab is visible
+    let onScreen = true;
+    new IntersectionObserver((en) => { onScreen = en[0].isIntersecting; }, { threshold: 0.01 }).observe(hero);
+
+    layout();
+    addEventListener('resize', layout);
+    let T = 0, last = performance.now(), frames = 0, acc = 0, slowFrames = 0, first = true;
+
+    function renderAt(Tnow, now) {
+      const t = Tnow % CYCLE, cycle = Math.floor(Tnow / CYCLE), phase = phaseAt(t);
+      applyState(t, Tnow);
+      updateCamera(t);
+      bld.updateMatrixWorld(true);
+      if (bmdPos.opacity > 0.001) updateBMD();
+      composer.render();
+      updateHUDText(t, phase, cycle, now);
+      updateHUD(t, phase);
+    }
+
+    function loop(now) {
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      if (!onScreen || document.hidden) return;
+      if (!dragging) { spinVel *= 0.95; spin += spinVel; }
+      if (pinnedT === null) T += dt;
+      // Adaptive resolution: step down if the GPU cannot keep up
+      acc += dt; frames++;
+      if (acc > 1) {
+        fps = frames / acc; frames = 0; acc = 0;
+        if (fps < 38 && dpr > 1) { slowFrames++; if (slowFrames >= 2) { dpr = Math.max(1, dpr - 0.25); layout(); slowFrames = 0; } }
+        else if (fps < 30 && dpr <= 1 && bloom.enabled) { bloom.enabled = false; }
+        else slowFrames = 0;
+      }
+      renderAt(pinnedT ?? T, now);
+      if (first) { first = false; canvas.classList.add('is-on'); loader.classList.add('is-done'); }
+    }
+
+    if (reduceMotion) {
+      // One composed still, re-rendered only on resize.
+      const still = () => { layout(); renderAt(pinnedT, performance.now()); canvas.classList.add('is-on'); loader.classList.add('is-done'); };
+      removeEventListener('resize', layout);
+      addEventListener('resize', still);
+      still();
+      return;
+    }
+    requestAnimationFrame((n) => { last = n; loop(n); });
+  }
+})();
+</script>
+</body>
+</html>

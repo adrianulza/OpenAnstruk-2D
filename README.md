@@ -51,6 +51,7 @@ npm run dev
 ```
 
 - Landing page: [http://localhost:5173](http://localhost:5173)
+- Alternative landing page (preview, noindex): [http://localhost:5173/next](http://localhost:5173/next)
 - App: [http://localhost:5173/app.html](http://localhost:5173/app.html)
 
 ## Commands

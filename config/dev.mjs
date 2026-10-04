@@ -198,6 +198,7 @@ async function main() {
     { label: 'Landing', path: '' },
     { label: '2D app', path: '2d' },
     { label: 'Support', path: 'donation' },
+    { label: 'Landing (next)', path: 'next' },
     ...(local.apps ?? []).flatMap((a) => a.routes ?? []),
   ])
 }

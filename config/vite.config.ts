@@ -21,11 +21,15 @@ export default defineConfig({
           '/app': '/html/app.html',
           '/2d': '/html/app.html',
           '/donation': '/html/donation.html',
+          // Alternative landing page under evaluation. noindex, not in the sitemap.
+          '/next': '/html/next.html',
         }
         server.middlewares.use((req, _res, next) => {
-          const url = req.url ?? ''
-          const key = url.length > 1 && url.endsWith('/') ? url.slice(0, -1) : url
-          if (PAGES[key]) req.url = PAGES[key]
+          // Match on the path alone and carry the query string across, the way
+          // the Worker's _redirects does. `/next?t=12` must still find its page.
+          const [path, query] = (req.url ?? '').split('?')
+          const key = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
+          if (PAGES[key]) req.url = PAGES[key] + (query ? `?${query}` : '')
           next()
         })
       },
@@ -56,6 +60,7 @@ export default defineConfig({
         index: path.resolve(__dirname, '../html/index.html'),
         app: path.resolve(__dirname, '../html/app.html'),
         donation: path.resolve(__dirname, '../html/donation.html'),
+        next: path.resolve(__dirname, '../html/next.html'),
       },
     },
   },

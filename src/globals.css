@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+/* The /next landing page is hand-written CSS. Without this, Tailwind's automatic
+   source detection reads its markup and ships unused utilities in the app bundle. */
+@source not '../html/next.html';
 
 @custom-variant dark (&:is(.dark *));
 
