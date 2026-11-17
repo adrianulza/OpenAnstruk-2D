@@ -1,7 +1,37 @@
 name = "openanstruk"
 compatibility_date = "2026-05-10"
 
+# Sign-in and the gate in front of the 2D app (worker/index.ts). Only the paths in
+# run_worker_first invoke the script and count against the free plan's 100k/day;
+# the landing page and everything else are served from dist/ without it.
+main = "worker/index.ts"
+
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 html_handling = "none"
 not_found_handling = "none"
+run_worker_first = ["/", "/app", "/html/app.html", "/assets/*", "/login", "/profil", "/logout", "/api/*"]
+
+# Accounts. Created with `npx wrangler d1 create openanstruk-users`; schema in schema.sql.
+# The 3D Worker (OpenAnstruk-3D) binds the same database.
+[[d1_databases]]
+binding = "DB"
+database_name = "openanstruk-users"
+database_id = "b3feca42-7e71-43f9-bd3d-822436b57353"
+
+[vars]
+# "1" = sign-in required for the app. "0" = the site as it was, app open (see worker/index.ts).
+# Turn on only after SESSION_SECRET and ADMIN_EMAIL are set and GOOGLE_CLIENT_ID is real.
+AUTH_ENABLED = "1"
+GOOGLE_CLIENT_ID = "309051888300-3fmak0hh0hfdckp5g84sp33r5j07u56l.apps.googleusercontent.com"
+COOKIE_DOMAIN = "openanstruk.org"
+# The 2D app has its own host (a custom domain on this same Worker); /app on the main site sends people there.
+APP_URL = "https://2d.openanstruk.org/"
+SITE = "https://openanstruk.org"
+APP_ORIGINS = "https://2d.openanstruk.org,https://3d.openanstruk.org"
+
+# Secrets, set once with `npx wrangler secret put <NAME>` and never written here:
+#   SESSION_SECRET  the same value in the 3D Worker
+#   ADMIN_EMAIL     the only account that may download /api/admin/*.csv
+# Local development reads them from .dev.vars (not tracked).

@@ -79,3 +79,33 @@ All contributions are welcome — code, bug reports, documentation, feedback. Se
 ## License
 
 [MIT](LICENSE) — free to use, modify, and distribute.
+
+## Sign-in
+
+The 2D app at `2d.openanstruk.org` (a custom domain on this same Worker; `openanstruk.org/app` redirects there) and the 3D app at `3d.openanstruk.org` require a Google account and a
+one-time profile (name, birth year, occupation, institution, consent to `/privasi`).
+`worker/index.ts` handles sign-in, the profile, account deletion and the gate; the landing
+page and every other static file are served without it. Accounts live in the D1 database
+`openanstruk-users` (`schema.sql`), shared with the 3D Worker. Nothing about a user's models
+is stored.
+
+Setup, once:
+
+1. Google Cloud Console: an OAuth consent screen and a Web OAuth client with the JavaScript
+   origins `https://openanstruk.org`, `https://www.openanstruk.org`, `https://2d.openanstruk.org`,
+   `https://3d.openanstruk.org`, `http://localhost:8787` and `http://localhost`.
+   Put its client ID in `wrangler.toml` (`GOOGLE_CLIENT_ID`; it is not a secret).
+2. `npx wrangler d1 create openanstruk-users`, put the `database_id` in `wrangler.toml` here
+   and in the 3D repo, then `npx wrangler d1 execute openanstruk-users --remote --file schema.sql`.
+3. `npx wrangler secret put SESSION_SECRET` here and in the 3D repo (the same random value,
+   at least 32 characters) and `npx wrangler secret put ADMIN_EMAIL` here.
+
+Local: put `SESSION_SECRET`, `ADMIN_EMAIL`, `AUTH_ENABLED=1`, `COOKIE_DOMAIN=`, `APP_URL=http://127.0.0.1:8787/`,
+`SITE=http://localhost:8787` and `APP_ORIGINS=http://127.0.0.1:8787` in `.dev.vars` (the two host names play the
+main site and the app host),
+`npx wrangler d1 execute openanstruk-users --local --file schema.sql`, `npm run build`,
+`npx wrangler dev`. Tests: `npx vitest run -c config/vitest.config.ts worker`.
+
+Data: `node scripts/export-users.mjs` writes `exports/users-<date>.csv` and
+`exports/visits-<date>.csv` (not tracked). Signed in as `ADMIN_EMAIL`, the same tables
+download from `/api/admin/users.csv` and `/api/admin/visits.csv`.

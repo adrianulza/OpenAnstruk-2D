@@ -34,6 +34,9 @@ const dist = join(root, "dist")
 const EXPECTED_HTML = new Set([
   "index.html",
   "app.html",
+  "login.html",     // sign-in (worker/index.ts serves it at /login)
+  "profil.html",    // profile form and account deletion, at /profil
+  "privasi.html",   // privacy policy, at /privasi
 ])
 
 // ⚠ There is deliberately NO validation.html. A public validation report is

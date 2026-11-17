@@ -54,6 +54,9 @@ export default defineConfig({
       input: {
         index: path.resolve(__dirname, '../html/index.html'),
         app: path.resolve(__dirname, '../html/app.html'),
+        login: path.resolve(__dirname, '../html/login.html'),
+        profil: path.resolve(__dirname, '../html/profil.html'),
+        privasi: path.resolve(__dirname, '../html/privasi.html'),
       },
     },
   },
